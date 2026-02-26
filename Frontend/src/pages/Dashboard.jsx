@@ -1,39 +1,14 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext } from "react";
 import { DoorContext } from "./DoorContext";
-import io from "socket.io-client";
-
-const socket = io("http://localhost:5000");
+// ✅ removed duplicate socket — now handled in DoorContext
 
 const Dashboard = () => {
-  const { alarmEnabled, setAlarmEnabled } = useContext(DoorContext);
-  const [doorStatus, setDoorStatus] = useState("Closed");
-  const [logs, setLogs] = useState([]);
+  const { doorStatus, logs, alarmEnabled, setAlarmEnabled } = useContext(DoorContext);
 
   const token = localStorage.getItem("token");
   const headers = {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`
-  };
-
-  const fetchLogs = async () => {
-    try {
-      const res = await fetch("http://localhost:5000/api/dashboard/logs", { headers });
-      const data = await res.json();
-      setLogs(Array.isArray(data) ? data : []);
-      if (data.length > 0) setDoorStatus(data[0].status);
-    } catch (err) {
-      console.error("Error fetching logs:", err);
-    }
-  };
-
-  const fetchSettings = async () => {
-    try {
-      const res = await fetch("http://localhost:5000/api/settings", { headers });
-      const data = await res.json();
-      if (data) setAlarmEnabled(data.alarm_enabled);
-    } catch (err) {
-      console.error("Error fetching settings:", err);
-    }
   };
 
   const handleAlarmToggle = async () => {
@@ -50,18 +25,6 @@ const Dashboard = () => {
     }
   };
 
-  useEffect(() => {
-    fetchLogs();
-    fetchSettings();
-
-    socket.on("door_update", (data) => {
-      setDoorStatus(data.status);
-      setLogs(prev => [data, ...prev]);
-    });
-
-    return () => socket.off("door_update");
-  }, []);
-
   const isOpen = doorStatus === "Opened" || doorStatus === "OPEN";
 
   return (
@@ -71,7 +34,6 @@ const Dashboard = () => {
         <p className="text-sm text-gray-500">Real-time monitoring of your smart door system</p>
       </div>
 
-      {/* Top Status Cards */}
       <div className="grid grid-cols-2 gap-4">
         <div className={`rounded-xl border p-5 flex items-center justify-between ${isOpen ? "bg-orange-50 border-orange-200" : "bg-green-50 border-green-200"}`}>
           <div>
@@ -94,10 +56,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="grid grid-cols-2 gap-4">
-
-        {/* ✅ Recent Activity Card - replaced Current Door Status */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <p className="text-base font-semibold text-gray-700 mb-4">Recent Activity</p>
           {logs.length === 0 ? (
@@ -120,10 +79,8 @@ const Dashboard = () => {
           )}
         </div>
 
-        {/* Quick Actions */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
           <p className="text-base font-semibold text-gray-700">Quick Actions</p>
-
           <div className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3">
             <div>
               <p className="text-sm font-medium text-gray-800">Alarm System</p>
@@ -137,7 +94,6 @@ const Dashboard = () => {
             </button>
           </div>
 
-          {/* Total Events Summary */}
           <div className="grid grid-cols-2 gap-3 mt-2">
             <div className="bg-orange-50 border border-orange-100 rounded-lg p-3 text-center">
               <p className="text-2xl font-bold text-orange-500">

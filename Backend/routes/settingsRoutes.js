@@ -5,9 +5,10 @@ const {
     toggleSMS,
     getSettings
 } = require('../controllers/settingsController');
+const { verifyToken } = require('../middleware/authMiddleware');
 
-router.get('/', getSettings);
-router.post('/alarm', toggleAlarm);
-router.post('/sms', toggleSMS);
+router.get('/', verifyToken, getSettings);
+router.post('/alarm', verifyToken, toggleAlarm);
+router.post('/sms', verifyToken, toggleSMS);
 
 module.exports = router;

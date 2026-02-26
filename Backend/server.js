@@ -23,6 +23,8 @@ app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/settings', require('./routes/settingsRoutes'));
+app.use('/api/iot',       require('./routes/iotRoutes')); 
+
 
 // MQTT SETUP
 const brokerUrl = process.env.MQTT_BROKER || 'mqtt://broker.hivemq.com:1883';

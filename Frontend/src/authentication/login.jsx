@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AuthLayout from "./AuthLayout";
+import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
+  const { setUser } = useAuth();
 
   const login = async () => {
     try {
@@ -22,17 +24,26 @@ export default function Login() {
         return;
       }
 
-      // ✅ Save token and role
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("role", data.role);
+      // Save to localStorage
+      localStorage.setItem("token",  data.token);
+      localStorage.setItem("role",   data.role);
+      localStorage.setItem("name",   data.name  || "");
+      localStorage.setItem("email",  data.email || email);
+      localStorage.setItem("avatar", data.avatar || "");
 
-      alert("✅ Login successful!");
+      // Set user in context
+      setUser({
+        token:  data.token,
+        role:   data.role,
+        name:   data.name  || "",
+        email:  data.email || email,
+        avatar: data.avatar || null,
+      });
 
-      // ✅ Redirect based on role
       if (data.role === "admin") {
-        navigate("/admin");      // admin → Admin Dashboard
+        navigate("/admin");
       } else {
-        navigate("/dashboard");  // regular user → Dashboard
+        navigate("/dashboard");
       }
 
     } catch (err) {
