@@ -1,10 +1,12 @@
-const router = require('express').Router();
-const auth = require('../controllers/authController');
-const { verifyToken } = require('../middleware/authMiddleware');
+const express = require('express');
+const router = express.Router();
+const authController = require('../controllers/authController');
 
-router.post('/signup',  auth.signup);
-router.post('/login',   auth.login);
-router.put('/profile',  verifyToken, auth.updateProfile); 
-router.post('/forgot-password', auth.forgotPassword);
+router.post('/signup', authController.signup);
+router.post('/login', authController.login);
+
+// These lines now have valid handler functions from the controller
+router.post('/forgot-password', authController.forgotPassword);
+router.post('/reset-password', authController.resetPassword);
 
 module.exports = router;

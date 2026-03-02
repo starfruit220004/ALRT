@@ -1,113 +1,65 @@
 const pool = require('../config/db');
-const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const sendEmail = require('../utils/sendEmail');
 
-const JWT_SECRET = process.env.JWT_SECRET || "secret";
-
-// SIGNUP
+// --- Keep your existing signup and login functions ---
 exports.signup = async (req, res) => {
-  const { name, email, password } = req.body;
-
-  try {
-    const userCheck = await pool.query('SELECT * FROM users WHERE email=$1', [email]);
-    if (userCheck.rows.length > 0) {
-      return res.status(400).json({ message: 'User already exists' });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    await pool.query(
-      'INSERT INTO users(name, email, password, role) VALUES($1, $2, $3, $4)',
-      [name, email, hashedPassword, 'user']
-    );
-
-    res.status(201).json({ message: 'Account created successfully' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
-  }
+    // your existing signup code
 };
 
-// LOGIN
 exports.login = async (req, res) => {
-  const { email, password } = req.body;
-
-  try {
-    const result = await pool.query('SELECT * FROM users WHERE email=$1', [email]);
-    if (result.rows.length === 0)
-      return res.status(404).json({ message: 'User not found' });
-
-    const user = result.rows[0];
-
-    const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid) return res.status(401).json({ message: 'Incorrect password' });
-
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '1d' }
-    );
-
-    // ✅ also return name and avatar so frontend can display them
-    res.json({
-      message: 'Login successful',
-      token,
-      role: user.role,
-      name: user.name,
-      email: user.email,
-      avatar: user.avatar || null,
-    });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
-  }
+    // your existing login code
 };
 
-// UPDATE PROFILE (name + avatar)
-exports.updateProfile = async (req, res) => {
-  const { name, avatar } = req.body;
-  const userId = req.user.id; // comes from verifyToken middleware
-
-  try {
-    const result = await pool.query(
-      'UPDATE users SET name=$1, avatar=$2 WHERE id=$3 RETURNING id, name, email, role, avatar',
-      [name, avatar || null, userId]
-    );
-
-    if (result.rows.length === 0)
-      return res.status(404).json({ message: 'User not found' });
-
-    const updated = result.rows[0];
-
-    res.json({
-      message: 'Profile updated successfully',
-      user: {
-        name:   updated.name,
-        email:  updated.email,
-        role:   updated.role,
-        avatar: updated.avatar,
-      }
-    });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
+// --- Added Forgot Password Logic ---
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
-  try {
-    const result = await pool.query('SELECT * FROM users WHERE email=$1', [email]);
-    if (result.rows.length === 0)
-      return res.status(404).json({ message: 'Email not found' });
 
-    const token = jwt.sign({ email }, JWT_SECRET, { expiresIn: '15m' });
-    console.log(`🔑 Reset token for ${email}: ${token}`);
-    res.json({ message: 'Reset token generated (check console)' });
+  try {
+    const user = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+
+    if (user.rows.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Create a temporary token valid for 10 minutes
+    const resetToken = jwt.sign(
+        { id: user.rows[0].id }, 
+        process.env.JWT_SECRET, 
+        { expiresIn: '10m' }
+    );
+    
+    // This link matches the route defined in your App.jsx
+    const resetUrl = `http://localhost:5173/reset-password?token=${resetToken}`;
+
+    const message = `You requested a password reset. Please click the link below to reset your password:\n\n${resetUrl}\n\nIf you did not request this, please ignore this email.`;
+
+    await sendEmail({
+      email: user.rows[0].email,
+      subject: 'Password Reset Request',
+      message: message,
+    });
+
+    res.status(200).json({ message: "Reset link sent to email" });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: "Error sending reset email" });
+  }
+};
+
+// --- Added Reset Password Logic ---
+exports.resetPassword = async (req, res) => {
+  const { token, newPassword } = req.body;
+
+  try {
+    // Verify the token sent from the frontend
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Update the user's password in the database
+    await pool.query("UPDATE users SET password = $1 WHERE id = $2", [newPassword, decoded.id]);
+
+    res.status(200).json({ message: "Password updated successfully" });
+  } catch (err) {
+    res.status(400).json({ message: "Invalid or expired token" });
   }
 };
