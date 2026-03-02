@@ -3,15 +3,27 @@ import AuthLayout from "./AuthLayout";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
 
   const sendReset = async () => {
-    await fetch("http://localhost:5000/api/auth/forgot-password", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ email })
-    });
+    setError("");
+    if (!email) return setError("Please enter your email.");
 
-    alert("Check backend console for reset token");
+    try {
+      const res = await fetch("http://localhost:5000/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email })
+      });
+
+      const data = await res.json();
+      if (!res.ok) return setError(data.message || "Something went wrong.");
+
+      setSent(true);
+    } catch {
+      setError("Network error. Please try again.");
+    }
   };
 
   return (
@@ -22,16 +34,28 @@ export default function ForgotPassword() {
         Remembered it? <a href="/">Back to login →</a>
       </p>
 
-      <div className="auth-field">
-        <label className="auth-label">Email</label>
-        <input
-          className="auth-input"
-          placeholder="you@example.com"
-          onChange={e => setEmail(e.target.value)}
-        />
-      </div>
+      {sent ? (
+        <p className="text-sm text-green-600 mt-2">
+          ✅ Reset token generated — check the backend console.
+        </p>
+      ) : (
+        <>
+          {error && <p className="text-sm text-red-500 mb-2">{error}</p>}
 
-      <button onClick={sendReset} className="auth-btn">Send Reset</button>
+          <div className="auth-field">
+            <label className="auth-label">Email</label>
+            {/* FIX: input was missing value={email} — it was uncontrolled */}
+            <input
+              className="auth-input"
+              placeholder="you@example.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+            />
+          </div>
+
+          <button onClick={sendReset} className="auth-btn">Send Reset</button>
+        </>
+      )}
     </AuthLayout>
   );
 }

@@ -19,13 +19,12 @@ export default function Signup() {
       const data = await res.json();
 
       if (!res.ok) {
-        // Handle error from backend
         alert(data.message || "Signup failed");
         return;
       }
 
       alert("✅ Account created successfully!");
-      navigate("/"); // redirect to login
+      navigate("/");
     } catch (err) {
       console.error(err);
       alert("Network error. Please try again.");
@@ -71,7 +70,7 @@ export default function Signup() {
         />
       </div>
 
-      <button onClick={signup} className="auth-btn">Signup</button>
+      <button onClick={signup} className="auth-btn">Sign Up</button>
     </AuthLayout>
   );
 }

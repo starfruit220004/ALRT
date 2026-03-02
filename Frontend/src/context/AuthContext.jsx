@@ -3,22 +3,35 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [user, setUserState] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token  = localStorage.getItem("token");
-    const role   = localStorage.getItem("role");
-    const name   = localStorage.getItem("name");
-    const email  = localStorage.getItem("email");
-    const avatar = localStorage.getItem("avatar") || null;
+    const token     = localStorage.getItem("token");
+    const role      = localStorage.getItem("role");
+    const name      = localStorage.getItem("name");
+    const email     = localStorage.getItem("email");
+    const avatar    = localStorage.getItem("avatar") || null;
+    const userId    = localStorage.getItem("userId") || null;
+    const mqttTopic = localStorage.getItem("mqttTopic") || null;
 
     if (token && role) {
-      setUser({ token, role, name, email, avatar });
+      setUserState({ token, role, name, email, avatar, userId, mqttTopic });
     }
-
     setLoading(false);
   }, []);
+
+  function setUser(userData) {
+    if (!userData) { setUserState(null); return; }
+    setUserState(userData);
+    localStorage.setItem("token",     userData.token     || "");
+    localStorage.setItem("role",      userData.role      || "");
+    localStorage.setItem("name",      userData.name      || "");
+    localStorage.setItem("email",     userData.email     || "");
+    localStorage.setItem("avatar",    userData.avatar    || "");
+    localStorage.setItem("userId",    userData.userId    || "");
+    localStorage.setItem("mqttTopic", userData.mqttTopic || "");
+  }
 
   function logout() {
     localStorage.removeItem("token");
@@ -26,7 +39,9 @@ export function AuthProvider({ children }) {
     localStorage.removeItem("name");
     localStorage.removeItem("email");
     localStorage.removeItem("avatar");
-    setUser(null);
+    localStorage.removeItem("userId");
+    localStorage.removeItem("mqttTopic");
+    setUserState(null);
   }
 
   return (

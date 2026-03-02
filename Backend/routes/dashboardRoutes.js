@@ -1,8 +1,48 @@
 const express = require('express');
 const router = express.Router();
-const { getLogs } = require('../controllers/dashboardController');
+const pool = require('../config/db');
 const { verifyToken } = require('../middleware/authMiddleware');
 
-router.get('/logs', verifyToken, getLogs);
+// GET — only this user's logs
+router.get('/logs', verifyToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM door_logs WHERE user_id = $1 ORDER BY created_at DESC',
+      [req.user.id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching logs:', err.message);
+    res.status(500).json({ message: 'Server error fetching logs' });
+  }
+});
+
+// DELETE single log — only if it belongs to this user
+router.delete('/logs/:id', verifyToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      'DELETE FROM door_logs WHERE id=$1 AND user_id=$2 RETURNING id',
+      [id, req.user.id]
+    );
+    if (result.rows.length === 0)
+      return res.status(404).json({ message: 'Log not found or not yours' });
+    res.json({ message: 'Log deleted' });
+  } catch (err) {
+    console.error('Error deleting log:', err.message);
+    res.status(500).json({ message: 'Server error deleting log' });
+  }
+});
+
+// DELETE all — only this user's logs
+router.delete('/logs', verifyToken, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM door_logs WHERE user_id=$1', [req.user.id]);
+    res.json({ message: 'Your logs cleared' });
+  } catch (err) {
+    console.error('Error clearing logs:', err.message);
+    res.status(500).json({ message: 'Server error clearing logs' });
+  }
+});
 
 module.exports = router;

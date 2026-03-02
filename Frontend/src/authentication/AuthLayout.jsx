@@ -281,7 +281,8 @@ export default function AuthLayout({ children, dotActive }) {
         <div className="auth-panel">
           <div className="auth-panel-logo">
             <div className="auth-panel-logo-icon"><span /></div>
-            <span className="auth-panel-logo-name">SmartDoor</span>
+            {/* FIX: changed from SmartDoor to Smart Alert */}
+            <span className="auth-panel-logo-name">Smart Alert</span>
           </div>
           <div className="auth-panel-body">
             <h1 className="auth-panel-heading">{panel.heading}</h1>

@@ -24,20 +24,22 @@ export default function Login() {
         return;
       }
 
-      // Save to localStorage
-      localStorage.setItem("token",  data.token);
-      localStorage.setItem("role",   data.role);
-      localStorage.setItem("name",   data.name  || "");
-      localStorage.setItem("email",  data.email || email);
-      localStorage.setItem("avatar", data.avatar || "");
+      localStorage.setItem("token",     data.token);
+      localStorage.setItem("role",      data.role);
+      localStorage.setItem("name",      data.name      || "");
+      localStorage.setItem("email",     data.email     || email);
+      localStorage.setItem("avatar",    data.avatar    || "");
+      localStorage.setItem("userId",    data.id        || "");
+      localStorage.setItem("mqttTopic", data.mqttTopic || "");
 
-      // Set user in context
       setUser({
-        token:  data.token,
-        role:   data.role,
-        name:   data.name  || "",
-        email:  data.email || email,
-        avatar: data.avatar || null,
+        token:     data.token,
+        role:      data.role,
+        name:      data.name      || "",
+        email:     data.email     || email,
+        avatar:    data.avatar    || null,
+        userId:    data.id        || null,
+        mqttTopic: data.mqttTopic || null,
       });
 
       if (data.role === "admin") {

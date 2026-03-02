@@ -7,15 +7,18 @@ export const DoorProvider = ({ children }) => {
   const [doorStatus,   setDoorStatus]   = useState("Closed");
   const [logs,         setLogs]         = useState([]);
   const [alarmEnabled, setAlarmEnabled] = useState(false);
-  const [emailEnabled, setEmailEnabled] = useState(false); // ✅ added
+  const [emailEnabled, setEmailEnabled] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token  = localStorage.getItem("token");
+    const userId = localStorage.getItem("userId");
+
+    if (userId) socket.emit("join_user_room", userId);
 
     const fetchLogs = async () => {
       try {
         const res = await fetch("http://localhost:5000/api/dashboard/logs", {
-          headers: { Authorization: `Bearer ${token}` } // ✅ added token
+          headers: { Authorization: `Bearer ${token}` }
         });
         if (!res.ok) return;
         const data = await res.json();
@@ -35,7 +38,7 @@ export const DoorProvider = ({ children }) => {
         const data = await res.json();
         if (data) {
           setAlarmEnabled(data.alarm_enabled);
-          setEmailEnabled(data.sms_enabled); // ✅ load from DB
+          setEmailEnabled(data.sms_enabled);
         }
       } catch (err) {
         console.error("Error fetching settings:", err);
@@ -52,8 +55,32 @@ export const DoorProvider = ({ children }) => {
       setLogs(prev => [data, ...prev]);
     };
 
+    // 🔔 Play alarm sound when server emits trigger_alarm
+    const handleAlarmTrigger = () => {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        oscillator.type = 'square';
+        oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+        gainNode.gain.setValueAtTime(1, ctx.currentTime);
+        oscillator.start();
+        oscillator.stop(ctx.currentTime + 2);
+        console.log('🔔 Alarm sound played!');
+      } catch (err) {
+        console.error('Error playing alarm sound:', err);
+      }
+    };
+
     socket.on("door_update", handleDoorUpdate);
-    return () => socket.off("door_update", handleDoorUpdate);
+    socket.on("trigger_alarm", handleAlarmTrigger);
+
+    return () => {
+      socket.off("door_update", handleDoorUpdate);
+      socket.off("trigger_alarm", handleAlarmTrigger);
+    };
   }, []);
 
   return (
@@ -61,7 +88,7 @@ export const DoorProvider = ({ children }) => {
       doorStatus,   setDoorStatus,
       logs,         setLogs,
       alarmEnabled, setAlarmEnabled,
-      emailEnabled, setEmailEnabled, // ✅ exposed
+      emailEnabled, setEmailEnabled,
     }}>
       {children}
     </DoorContext.Provider>
