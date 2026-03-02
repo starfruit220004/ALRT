@@ -12,10 +12,17 @@
 //   useEffect(() => {
 //     const token = localStorage.getItem("token");
 
+//     // Prevent fetching and throwing 401 errors if there is no token
+//     if (!token) return;
+
 //     const fetchLogs = async () => {
 //       try {
 //         const res = await fetch("http://localhost:5000/api/dashboard/logs", {
-//           headers: { Authorization: `Bearer ${token}` } // ✅ added token
+//           method: "GET",
+//           headers: { 
+//             "Content-Type": "application/json",
+//             "Authorization": `Bearer ${token}` 
+//           }
 //         });
 //         if (!res.ok) return;
 //         const data = await res.json();
@@ -29,7 +36,11 @@
 //     const fetchSettings = async () => {
 //       try {
 //         const res = await fetch("http://localhost:5000/api/settings", {
-//           headers: { Authorization: `Bearer ${token}` }
+//           method: "GET",
+//           headers: { 
+//             "Content-Type": "application/json",
+//             "Authorization": `Bearer ${token}` 
+//           }
 //         });
 //         if (!res.ok) return;
 //         const data = await res.json();
@@ -77,12 +88,13 @@ export const DoorProvider = ({ children }) => {
   const [doorStatus,   setDoorStatus]   = useState("Closed");
   const [logs,         setLogs]         = useState([]);
   const [alarmEnabled, setAlarmEnabled] = useState(false);
-  const [emailEnabled, setEmailEnabled] = useState(false); // ✅ added
+  const [emailEnabled, setEmailEnabled] = useState(false); 
 
   useEffect(() => {
     const token = localStorage.getItem("token");
 
-    // Prevent fetching and throwing 401 errors if there is no token
+    // STOP HERE if there is no token (User is not logged in)
+    // This prevents the 401 Unauthorized errors on the login screen
     if (!token) return;
 
     const fetchLogs = async () => {
@@ -116,7 +128,7 @@ export const DoorProvider = ({ children }) => {
         const data = await res.json();
         if (data) {
           setAlarmEnabled(data.alarm_enabled);
-          setEmailEnabled(data.sms_enabled); // ✅ load from DB
+          setEmailEnabled(data.sms_enabled); 
         }
       } catch (err) {
         console.error("Error fetching settings:", err);
@@ -125,7 +137,7 @@ export const DoorProvider = ({ children }) => {
 
     fetchLogs();
     fetchSettings();
-  }, []);
+  }, []); // Note: You might need to add 'user' or 'token' as a dependency here later if context changes
 
   useEffect(() => {
     const handleDoorUpdate = (data) => {
@@ -142,7 +154,7 @@ export const DoorProvider = ({ children }) => {
       doorStatus,   setDoorStatus,
       logs,         setLogs,
       alarmEnabled, setAlarmEnabled,
-      emailEnabled, setEmailEnabled, // ✅ exposed
+      emailEnabled, setEmailEnabled, 
     }}>
       {children}
     </DoorContext.Provider>
