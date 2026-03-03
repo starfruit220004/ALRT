@@ -11,23 +11,25 @@ const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 exports.signup = async (req, res) => {
   const { name, email, password } = req.body;
   try {
-    const userCheck = await pool.query('SELECT * FROM users WHERE email=$1', [email]);
+    const userCheck = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (userCheck.rows.length > 0)
       return res.status(400).json({ message: 'Email already in use' });
 
+    // Hash password before saving
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const result = await pool.query(
-      'INSERT INTO users(name, email, password, role) VALUES($1, $2, $3, $4) RETURNING id',
+      'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id',
       [name, email, hashedPassword, 'user']
     );
 
     const newUserId = result.rows[0].id;
 
+    // Auto-generate unique MQTT topic
     const mqttTopic = `Smart_Alert/user_${newUserId}/door`;
-    await pool.query('UPDATE users SET mqtt_topic=$1 WHERE id=$2', [mqttTopic, newUserId]);
+    await pool.query('UPDATE users SET mqtt_topic = $1 WHERE id = $2', [mqttTopic, newUserId]);
 
-    res.status(201).json({ message: 'Account created successfully' });
+    res.status(201).json({ message: 'Account created successfully!' });
   } catch (err) {
     console.error('Signup Error:', err);
     res.status(500).json({ message: 'Server error during signup' });
@@ -40,19 +42,21 @@ exports.signup = async (req, res) => {
 exports.login = async (req, res) => {
   const { email, password } = req.body;
   try {
-    const result = await pool.query('SELECT * FROM users WHERE email=$1', [email]);
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (result.rows.length === 0)
       return res.status(404).json({ message: 'User not found' });
 
     const user = result.rows[0];
 
+    // Compare hashed password
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid)
       return res.status(401).json({ message: 'Invalid credentials' });
 
+    // Ensure mqtt_topic exists (for older users created before MQTT was added)
     if (!user.mqtt_topic) {
       const topic = `Smart_Alert/user_${user.id}/door`;
-      await pool.query('UPDATE users SET mqtt_topic=$1 WHERE id=$2', [topic, user.id]);
+      await pool.query('UPDATE users SET mqtt_topic = $1 WHERE id = $2', [topic, user.id]);
       user.mqtt_topic = topic;
     }
 
@@ -84,19 +88,21 @@ exports.login = async (req, res) => {
 exports.googleAuth = async (req, res) => {
   const { email, name, avatar } = req.body;
   try {
-    let userResult = await pool.query('SELECT * FROM users WHERE email=$1', [email]);
+    let userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
 
+    // If user doesn't exist, create one
     if (userResult.rows.length === 0) {
       const inserted = await pool.query(
-        'INSERT INTO users(name, email, password, role) VALUES($1, $2, $3, $4) RETURNING id',
+        'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id',
         [name, email, 'google_sso_user', 'user']
       );
 
       const newUserId = inserted.rows[0].id;
       const mqttTopic = `Smart_Alert/user_${newUserId}/door`;
-      await pool.query('UPDATE users SET mqtt_topic=$1 WHERE id=$2', [mqttTopic, newUserId]);
+      await pool.query('UPDATE users SET mqtt_topic = $1 WHERE id = $2', [mqttTopic, newUserId]);
 
-      userResult = await pool.query('SELECT * FROM users WHERE id=$1', [newUserId]);
+      // Re-fetch the full user row
+      userResult = await pool.query('SELECT * FROM users WHERE id = $1', [newUserId]);
     }
 
     const user = userResult.rows[0];
@@ -131,7 +137,7 @@ exports.updateProfile = async (req, res) => {
   const userId = req.user.id;
   try {
     const result = await pool.query(
-      'UPDATE users SET name=$1, avatar=$2 WHERE id=$3 RETURNING id, name, email, role, avatar, mqtt_topic',
+      'UPDATE users SET name = $1, avatar = $2 WHERE id = $3 RETURNING id, name, email, role, avatar, mqtt_topic',
       [name, avatar || null, userId]
     );
     if (result.rows.length === 0)
@@ -161,12 +167,13 @@ exports.updateProfile = async (req, res) => {
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
   try {
-    const result = await pool.query('SELECT * FROM users WHERE email=$1', [email]);
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (result.rows.length === 0)
       return res.status(404).json({ message: 'User not found' });
 
     const user = result.rows[0];
 
+    // Token valid for 10 minutes
     const resetToken = jwt.sign(
       { id: user.id },
       JWT_SECRET,
@@ -174,7 +181,7 @@ exports.forgotPassword = async (req, res) => {
     );
 
     const resetUrl = `http://localhost:5173/reset-password?token=${resetToken}`;
-    const message = `You requested a password reset. Click the link below:\n\n${resetUrl}\n\nThis link expires in 10 minutes.\n\nIf you did not request this, please ignore this email.`;
+    const message = `You requested a password reset. Please click the link below to reset your password:\n\n${resetUrl}\n\nThis link expires in 10 minutes.\n\nIf you did not request this, please ignore this email.`;
 
     await sendEmail({
       email:   user.email,
@@ -197,8 +204,9 @@ exports.resetPassword = async (req, res) => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
 
+    // Hash the new password before saving
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await pool.query('UPDATE users SET password=$1 WHERE id=$2', [hashedPassword, decoded.id]);
+    await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, decoded.id]);
 
     res.status(200).json({ message: 'Password updated successfully' });
   } catch (err) {

@@ -13,12 +13,16 @@ export const DoorProvider = ({ children }) => {
     const token  = localStorage.getItem("token");
     const userId = localStorage.getItem("userId");
 
+    // Stop here if not logged in — prevents 401 errors on login screen
+    if (!token) return;
+
+    // Join the user's private socket room for real-time door updates
     if (userId) socket.emit("join_user_room", userId);
 
     const fetchLogs = async () => {
       try {
         const res = await fetch("http://localhost:5000/api/dashboard/logs", {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) return;
         const data = await res.json();
@@ -32,7 +36,7 @@ export const DoorProvider = ({ children }) => {
     const fetchSettings = async () => {
       try {
         const res = await fetch("http://localhost:5000/api/settings", {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) return;
         const data = await res.json();
@@ -52,10 +56,9 @@ export const DoorProvider = ({ children }) => {
   useEffect(() => {
     const handleDoorUpdate = (data) => {
       setDoorStatus(data.status);
-      setLogs(prev => [data, ...prev]);
+      setLogs((prev) => [data, ...prev]);
     };
 
-    // 🔔 Play alarm sound when server emits trigger_alarm
     const handleAlarmTrigger = () => {
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -63,14 +66,14 @@ export const DoorProvider = ({ children }) => {
         const gainNode = ctx.createGain();
         oscillator.connect(gainNode);
         gainNode.connect(ctx.destination);
-        oscillator.type = 'square';
+        oscillator.type = "square";
         oscillator.frequency.setValueAtTime(880, ctx.currentTime);
         gainNode.gain.setValueAtTime(1, ctx.currentTime);
         oscillator.start();
         oscillator.stop(ctx.currentTime + 2);
-        console.log('🔔 Alarm sound played!');
+        console.log("Alarm sound played!");
       } catch (err) {
-        console.error('Error playing alarm sound:', err);
+        console.error("Error playing alarm sound:", err);
       }
     };
 
@@ -84,12 +87,14 @@ export const DoorProvider = ({ children }) => {
   }, []);
 
   return (
-    <DoorContext.Provider value={{
-      doorStatus,   setDoorStatus,
-      logs,         setLogs,
-      alarmEnabled, setAlarmEnabled,
-      emailEnabled, setEmailEnabled,
-    }}>
+    <DoorContext.Provider
+      value={{
+        doorStatus,   setDoorStatus,
+        logs,         setLogs,
+        alarmEnabled, setAlarmEnabled,
+        emailEnabled, setEmailEnabled,
+      }}
+    >
       {children}
     </DoorContext.Provider>
   );
