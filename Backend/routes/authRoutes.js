@@ -9,6 +9,7 @@ router.post('/login',           auth.login);
 router.post('/google',          auth.googleAuth);
 router.post('/forgot-password', auth.forgotPassword);
 router.post('/reset-password',  auth.resetPassword);
+router.get('/phone/:userId',    auth.getPhoneNumber);
 
 // Protected routes (require valid JWT)
 router.put('/profile', verifyToken, auth.updateProfile);

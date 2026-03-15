@@ -32,24 +32,58 @@ app.use('/api/users',     require('./routes/userRoutes'));
 // ─────────────────────────────────────────
 // MQTT SETUP
 // ─────────────────────────────────────────
-const brokerUrl = process.env.MQTT_BROKER || 'mqtt://broker.hivemq.com:1883';
-const wildcardTopic = 'Smart_Alert/+/door';
+const brokerUrl    = process.env.MQTT_BROKER || 'mqtt://broker.hivemq.com:1883';
+const VALID_STATUSES = ['OPEN', 'CLOSE', 'Opened', 'Closed', 'Alarm'];
+const clientId     = `SmartAlert_Backend_${Math.random().toString(16).slice(2, 8)}`;
 
-const mqttClient = mqtt.connect(brokerUrl);
+const mqttClient = mqtt.connect(brokerUrl, {
+  clientId,
+  clean: true,
+  reconnectPeriod: 5000,
+  connectTimeout:  10000,
+});
 
-mqttClient.on('connect', () => {
+let isSubscribed = false;
+
+mqttClient.on('connect', async () => {
   console.log('✅ Connected to MQTT Broker');
-  mqttClient.subscribe(wildcardTopic, (err) => {
-    if (err) console.error('❌ MQTT subscribe error:', err);
-    else     console.log(`📡 Subscribed to: ${wildcardTopic}`);
-  });
+
+  if (isSubscribed) return;
+
+  try {
+    const result = await pool.query('SELECT id FROM users');
+    const users  = result.rows;
+
+    if (users.length === 0) {
+      console.warn('⚠️  No users found in DB to subscribe to.');
+      return;
+    }
+
+    users.forEach(user => {
+      const topic = `Smart_Alert/user_${user.id}/door`;
+      mqttClient.subscribe(topic, (err) => {
+        if (err) console.error(`❌ Subscribe error for ${topic}:`, err.message);
+        else     console.log(`📡 Subscribed to: ${topic}`);
+      });
+    });
+
+    isSubscribed = true;
+  } catch (err) {
+    console.error('❌ Failed to fetch users for MQTT subscribe:', err.message);
+  }
 });
 
 mqttClient.on('message', async (receivedTopic, message) => {
   const payload = message.toString().trim();
+
+  if (!VALID_STATUSES.includes(payload)) {
+    console.warn(`⚠️  Ignoring invalid payload "${payload}" on topic: ${receivedTopic}`);
+    return;
+  }
+
   console.log(`📡 MQTT [${receivedTopic}]: ${payload}`);
 
-  const parts = receivedTopic.split('/');
+  const parts       = receivedTopic.split('/');
   const userSegment = parts[1];
 
   if (!userSegment || !userSegment.startsWith('user_')) {
@@ -64,14 +98,12 @@ mqttClient.on('message', async (receivedTopic, message) => {
   }
 
   try {
-    // Save log to DB
     const result = await pool.query(
       'INSERT INTO door_logs (status, user_id, created_at) VALUES ($1, $2, NOW()) RETURNING *',
       [payload, userId]
     );
     const savedLog = result.rows[0];
 
-    // Emit real-time update to the user's socket room
     io.to(`user_${userId}`).emit('door_update', {
       id:         savedLog.id,
       status:     savedLog.status,
@@ -81,12 +113,16 @@ mqttClient.on('message', async (receivedTopic, message) => {
 
     console.log(`✅ Log saved for user_${userId}: ${payload}`);
 
-    // Fetch latest settings
-    const settingsResult = await pool.query('SELECT * FROM settings WHERE id = 1');
+    const settingsResult = await pool.query(
+      'SELECT * FROM settings WHERE user_id = $1',
+      [userId]
+    );
     const s = settingsResult.rows[0];
-    if (!s) return;
+    if (!s) {
+      console.warn(`⚠️  No settings found for user_${userId}`);
+      return;
+    }
 
-    // Trigger alarm sound on frontend via socket
     if (s.alarm_enabled && (payload === 'Alarm' || payload === 'OPEN')) {
       console.log(`🔔 Alarm triggered for user_${userId}`);
       io.to(`user_${userId}`).emit('trigger_alarm', {
@@ -95,10 +131,8 @@ mqttClient.on('message', async (receivedTopic, message) => {
       });
     }
 
-    // SMS — placeholder for Twilio
     if (s.sms_enabled && (payload === 'Alarm' || payload === 'OPEN')) {
       console.log(`📱 SMS triggered for user_${userId}: ${payload}`);
-      // TODO: wire up Twilio here
     }
 
   } catch (err) {
@@ -108,6 +142,16 @@ mqttClient.on('message', async (receivedTopic, message) => {
 
 mqttClient.on('error', (err) => {
   console.error('❌ MQTT error:', err.message);
+});
+
+mqttClient.on('disconnect', () => {
+  console.warn('⚠️  MQTT disconnected.');
+  isSubscribed = false;
+});
+
+mqttClient.on('reconnect', () => {
+  console.log('🔄 MQTT reconnecting...');
+  isSubscribed = false;
 });
 
 // ─────────────────────────────────────────

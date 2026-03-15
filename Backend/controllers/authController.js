@@ -9,25 +9,28 @@ const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 // 1. SIGNUP
 // ─────────────────────────────────────────
 exports.signup = async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, phone } = req.body;
   try {
     const userCheck = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (userCheck.rows.length > 0)
       return res.status(400).json({ message: 'Email already in use' });
 
-    // Hash password before saving
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const result = await pool.query(
-      'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id',
-      [name, email, hashedPassword, 'user']
+      'INSERT INTO users (name, email, password, role, phone) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+      [name, email, hashedPassword, 'user', phone || null]
     );
 
     const newUserId = result.rows[0].id;
 
-    // Auto-generate unique MQTT topic
     const mqttTopic = `Smart_Alert/user_${newUserId}/door`;
     await pool.query('UPDATE users SET mqtt_topic = $1 WHERE id = $2', [mqttTopic, newUserId]);
+
+    await pool.query(
+      'INSERT INTO settings (alarm_enabled, sms_enabled, user_id) VALUES ($1, $2, $3)',
+      [false, false, newUserId]
+    );
 
     res.status(201).json({ message: 'Account created successfully!' });
   } catch (err) {
@@ -48,12 +51,10 @@ exports.login = async (req, res) => {
 
     const user = result.rows[0];
 
-    // Compare hashed password
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid)
       return res.status(401).json({ message: 'Invalid credentials' });
 
-    // Ensure mqtt_topic exists (for older users created before MQTT was added)
     if (!user.mqtt_topic) {
       const topic = `Smart_Alert/user_${user.id}/door`;
       await pool.query('UPDATE users SET mqtt_topic = $1 WHERE id = $2', [topic, user.id]);
@@ -73,8 +74,9 @@ exports.login = async (req, res) => {
       role:      user.role,
       name:      user.name,
       email:     user.email,
-      avatar:    user.avatar || null,
+      avatar:    user.avatar    || null,
       mqttTopic: user.mqtt_topic,
+      phone:     user.phone     || null,
     });
   } catch (err) {
     console.error('Login Error:', err);
@@ -90,7 +92,6 @@ exports.googleAuth = async (req, res) => {
   try {
     let userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
 
-    // If user doesn't exist, create one
     if (userResult.rows.length === 0) {
       const inserted = await pool.query(
         'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id',
@@ -101,7 +102,11 @@ exports.googleAuth = async (req, res) => {
       const mqttTopic = `Smart_Alert/user_${newUserId}/door`;
       await pool.query('UPDATE users SET mqtt_topic = $1 WHERE id = $2', [mqttTopic, newUserId]);
 
-      // Re-fetch the full user row
+      await pool.query(
+        'INSERT INTO settings (alarm_enabled, sms_enabled, user_id) VALUES ($1, $2, $3)',
+        [false, false, newUserId]
+      );
+
       userResult = await pool.query('SELECT * FROM users WHERE id = $1', [newUserId]);
     }
 
@@ -122,6 +127,7 @@ exports.googleAuth = async (req, res) => {
       email:     user.email,
       avatar:    avatar || user.avatar || null,
       mqttTopic: user.mqtt_topic,
+      phone:     user.phone || null,
     });
   } catch (err) {
     console.error('Google Auth Error:', err);
@@ -133,12 +139,12 @@ exports.googleAuth = async (req, res) => {
 // 4. UPDATE PROFILE
 // ─────────────────────────────────────────
 exports.updateProfile = async (req, res) => {
-  const { name, avatar } = req.body;
+  const { name, avatar, phone } = req.body;
   const userId = req.user.id;
   try {
     const result = await pool.query(
-      'UPDATE users SET name = $1, avatar = $2 WHERE id = $3 RETURNING id, name, email, role, avatar, mqtt_topic',
-      [name, avatar || null, userId]
+      'UPDATE users SET name = $1, avatar = $2, phone = $3 WHERE id = $4 RETURNING id, name, email, role, avatar, mqtt_topic, phone',
+      [name, avatar || null, phone || null, userId]
     );
     if (result.rows.length === 0)
       return res.status(404).json({ message: 'User not found' });
@@ -153,6 +159,7 @@ exports.updateProfile = async (req, res) => {
         role:      updated.role,
         avatar:    updated.avatar,
         mqttTopic: updated.mqtt_topic,
+        phone:     updated.phone || null,
       },
     });
   } catch (err) {
@@ -173,21 +180,12 @@ exports.forgotPassword = async (req, res) => {
 
     const user = result.rows[0];
 
-    // Token valid for 10 minutes
-    const resetToken = jwt.sign(
-      { id: user.id },
-      JWT_SECRET,
-      { expiresIn: '10m' }
-    );
+    const resetToken = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '10m' });
 
     const resetUrl = `http://localhost:5173/reset-password?token=${resetToken}`;
-    const message = `You requested a password reset. Please click the link below to reset your password:\n\n${resetUrl}\n\nThis link expires in 10 minutes.\n\nIf you did not request this, please ignore this email.`;
+    const message  = `You requested a password reset. Please click the link below to reset your password:\n\n${resetUrl}\n\nThis link expires in 10 minutes.\n\nIf you did not request this, please ignore this email.`;
 
-    await sendEmail({
-      email:   user.email,
-      subject: 'Password Reset Request',
-      message,
-    });
+    await sendEmail({ email: user.email, subject: 'Password Reset Request', message });
 
     res.status(200).json({ message: 'Reset link sent to email' });
   } catch (err) {
@@ -203,14 +201,31 @@ exports.resetPassword = async (req, res) => {
   const { token, newPassword } = req.body;
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-
-    // Hash the new password before saving
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, decoded.id]);
-
     res.status(200).json({ message: 'Password updated successfully' });
   } catch (err) {
     console.error('Reset Password Error:', err);
     res.status(400).json({ message: 'Invalid or expired token' });
+  }
+};
+
+// ─────────────────────────────────────────
+// 7. GET PHONE NUMBER (for ESP32)
+// ─────────────────────────────────────────
+exports.getPhoneNumber = async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const result = await pool.query(
+      'SELECT phone FROM users WHERE id = $1',
+      [userId]
+    );
+    if (result.rows.length === 0)
+      return res.status(404).json({ message: 'User not found' });
+
+    res.status(200).json({ phone: result.rows[0].phone || null });
+  } catch (err) {
+    console.error('Get Phone Error:', err);
+    res.status(500).json({ message: 'Server error' });
   }
 };

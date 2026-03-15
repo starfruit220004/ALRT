@@ -33,7 +33,6 @@ function Calendar({ logs, selectedDate, onSelectDate }) {
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 w-full">
-      {/* Month nav */}
       <div className="flex items-center justify-between mb-4">
         <button onClick={prevMonth} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors text-gray-500">
           <ChevronLeft size={15} />
@@ -44,14 +43,12 @@ function Calendar({ logs, selectedDate, onSelectDate }) {
         </button>
       </div>
 
-      {/* Day headers */}
       <div className="grid grid-cols-7 mb-1">
         {["Su","Mo","Tu","We","Th","Fr","Sa"].map(d => (
           <div key={d} className="text-center text-[10px] font-semibold text-gray-400 uppercase py-1">{d}</div>
         ))}
       </div>
 
-      {/* Day cells */}
       <div className="grid grid-cols-7 gap-y-1">
         {Array.from({ length: firstDayOfWeek }).map((_, i) => <div key={`e-${i}`} />)}
         {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
@@ -81,7 +78,6 @@ function Calendar({ logs, selectedDate, onSelectDate }) {
         })}
       </div>
 
-      {/* Legend */}
       <div className="flex items-center gap-3 mt-4 pt-3 border-t border-gray-100">
         <div className="flex items-center gap-1.5 text-xs text-gray-400">
           <span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block" /> Has activity
@@ -110,13 +106,6 @@ const ActivityLog = () => {
   const totalOpened = logs.filter(l => l.status === "Opened" || l.status === "OPEN").length;
   const totalClosed = logs.filter(l => l.status === "Closed" || l.status === "CLOSE").length;
   const totalAlarm  = logs.filter(l => l.status === "Alarm").length;
-
-  const getStatusStyle = (status) => {
-    if (status === "Opened" || status === "OPEN") return "bg-orange-100 text-orange-600 border border-orange-200";
-    if (status === "Closed" || status === "CLOSE") return "bg-green-100 text-green-700 border border-green-200";
-    if (status === "Alarm") return "bg-red-100 text-red-600 border border-red-200";
-    return "bg-gray-100 text-gray-600";
-  };
 
   const filtered = logs.filter((log) => {
     const matchSearch = log.status.toLowerCase().includes(search.toLowerCase());
@@ -208,7 +197,6 @@ const ActivityLog = () => {
 
         {/* Table */}
         <div className="flex-1 bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-          {/* Search bar + result info */}
           <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
             <div className="flex-1 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
               <span className="text-gray-400 text-sm">🔍</span>
@@ -233,14 +221,13 @@ const ActivityLog = () => {
                 <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Event</th>
                 <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</th>
                 <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Time</th>
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
                 <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Action</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-14 text-gray-400">
+                  <td colSpan={4} className="text-center py-14 text-gray-400">
                     <div className="flex flex-col items-center gap-2">
                       <span className="text-3xl">📋</span>
                       <p className="text-sm">
@@ -271,11 +258,6 @@ const ActivityLog = () => {
                       </td>
                       <td className="px-5 py-3.5 text-gray-600">{date}</td>
                       <td className="px-5 py-3.5 text-gray-500">{time}</td>
-                      <td className="px-5 py-3.5">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getStatusStyle(log.status)}`}>
-                          {isAlarm ? "🔴 Alert" : isOpen ? "🟠 Warning" : "🟢 Safe"}
-                        </span>
-                      </td>
                       <td className="px-5 py-3.5">
                         <button
                           onClick={() => handleDeleteLog(log.id)}

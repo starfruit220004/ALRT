@@ -40,7 +40,7 @@ export default function Sidebar({ onProfileClick }) {
         {/* Profile button — opens modal */}
         <button
           onClick={onProfileClick}
-          className={`flex flex-col items-center gap-2 pt-8 pb-6 border-b border-slate-700/60 w-full hover:bg-slate-800/60 transition-colors flex-shrink-0 ${collapsed ? 'px-2' : 'px-5'}`}
+          className={`flex flex-col items-center gap-2 pt-8 pb-6 border-b border-slate-700/60 w-full hover:bg-slate-800/60 transition-colors shrink-0 ${collapsed ? 'px-2' : 'px-5'}`}
         >
           <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center overflow-hidden ring-2 ring-blue-500/50 ring-offset-2 ring-offset-slate-900 shrink-0">
             {user?.avatar
@@ -78,7 +78,7 @@ export default function Sidebar({ onProfileClick }) {
         </nav>
 
         {/* Logout */}
-        <div className="px-2 pb-5 flex-shrink-0">
+        <div className="px-2 pb-5 shrink-0">
           <button
             onClick={handleLogout}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-all duration-150 ${collapsed ? 'justify-center' : ''}`}
@@ -93,7 +93,7 @@ export default function Sidebar({ onProfileClick }) {
       {/* Spacer */}
       <div
         style={{ width: collapsed ? '72px' : '240px', minWidth: collapsed ? '72px' : '240px' }}
-        className="flex-shrink-0 transition-all duration-300"
+        className="shrink-0 transition-all duration-300"
       />
     </>
   );

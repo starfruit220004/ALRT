@@ -2,7 +2,12 @@ import React, { useContext } from "react";
 import { DoorContext } from "./DoorContext";
 
 const Dashboard = () => {
-  const { doorStatus, logs, alarmEnabled, setAlarmEnabled, emailEnabled, setEmailEnabled } = useContext(DoorContext);
+  const {
+    doorStatus,
+    logs,
+    alarmEnabled, setAlarmEnabled,
+    emailEnabled, setEmailEnabled,
+  } = useContext(DoorContext);
 
   const token = localStorage.getItem("token");
 
@@ -12,8 +17,11 @@ const Dashboard = () => {
     try {
       await fetch("http://localhost:5000/api/settings/alarm", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ value: newValue })
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ value: newValue }),
       });
     } catch (err) {
       console.error("Error toggling alarm:", err);
@@ -26,8 +34,11 @@ const Dashboard = () => {
     try {
       await fetch("http://localhost:5000/api/settings/sms", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ value: newValue })
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ value: newValue }),
       });
     } catch (err) {
       console.error("Error toggling SMS:", err);
@@ -47,12 +58,14 @@ const Dashboard = () => {
         <p className="text-sm text-gray-500">Real-time monitoring of your Smart Alert system</p>
       </div>
 
-      {/* Status cards */}
+      {/* Status Cards */}
       <div className="grid grid-cols-2 gap-4">
         <div className={`rounded-xl border p-5 flex items-center justify-between ${isOpen ? "bg-orange-50 border-orange-200" : "bg-green-50 border-green-200"}`}>
           <div>
             <p className="text-xs text-gray-500 mb-1">Door Status</p>
-            <p className={`text-xl font-bold ${isOpen ? "text-orange-500" : "text-green-600"}`}>{doorStatus}</p>
+            <p className={`text-xl font-bold ${isOpen ? "text-orange-500" : "text-green-600"}`}>
+              {doorStatus}
+            </p>
           </div>
           <span className="text-2xl">{isOpen ? "🔓" : "🔒"}</span>
         </div>
@@ -60,13 +73,15 @@ const Dashboard = () => {
         <div className="rounded-xl border bg-blue-50 border-blue-200 p-5 flex items-center justify-between">
           <div>
             <p className="text-xs text-gray-500 mb-1">Alarm Status</p>
-            <p className="text-xl font-bold text-blue-600">{alarmEnabled ? "Enabled" : "Disabled"}</p>
+            <p className="text-xl font-bold text-blue-600">
+              {alarmEnabled ? "Enabled" : "Disabled"}
+            </p>
           </div>
           <span className="text-2xl">🔔</span>
         </div>
       </div>
 
-      {/* Summary counts */}
+      {/* Summary Counts */}
       <div className="grid grid-cols-3 gap-4">
         <div className="rounded-xl border border-red-200 bg-red-50 p-5 flex items-center justify-between">
           <div>
@@ -95,11 +110,13 @@ const Dashboard = () => {
       <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
         <p className="text-base font-semibold text-gray-700">Quick Actions</p>
 
-        {/* Alarm toggle */}
+        {/* Alarm Toggle */}
         <div className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3">
           <div>
             <p className="text-sm font-medium text-gray-800">Alarm System</p>
-            <p className="text-xs text-gray-400">{alarmEnabled ? "🔔 Sound will play on door open/alarm" : "🔕 Alarm is disabled"}</p>
+            <p className="text-xs text-gray-400">
+              {alarmEnabled ? "🔔 Sound will play on door open/alarm" : "🔕 Alarm is disabled"}
+            </p>
           </div>
           <button
             onClick={handleAlarmToggle}
@@ -109,11 +126,13 @@ const Dashboard = () => {
           </button>
         </div>
 
-        {/* SMS toggle */}
+        {/* SMS Toggle */}
         <div className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3">
           <div>
             <p className="text-sm font-medium text-gray-800">SMS Notifications</p>
-            <p className="text-xs text-gray-400">{emailEnabled ? "📱 SMS will be sent on door open/alarm" : "📵 SMS is disabled"}</p>
+            <p className="text-xs text-gray-400">
+              {emailEnabled ? "📱 SMS will be sent on door open/alarm" : "📵 SMS is disabled"}
+            </p>
           </div>
           <button
             onClick={handleSmsToggle}

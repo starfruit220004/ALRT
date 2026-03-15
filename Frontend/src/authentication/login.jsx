@@ -5,13 +5,15 @@ import { useAuth } from "../context/AuthContext";
 import { GoogleLogin } from "@react-oauth/google";
 
 export default function Login() {
-  const [email, setEmail] = useState("");
+  const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError]       = useState("");
   const navigate = useNavigate();
   const { setUser } = useAuth();
 
   // ── Normal Email/Password Login ──────────────────────────
   const login = async () => {
+    setError("");
     try {
       const res = await fetch("http://localhost:5000/api/auth/login", {
         method: "POST",
@@ -22,49 +24,37 @@ export default function Login() {
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.message || "Login failed");
+        setError(data.message || "Login failed");
         return;
       }
 
-      // Save everything including userId and mqttTopic for socket rooms
-      localStorage.setItem("token",     data.token);
-      localStorage.setItem("role",      data.role);
-      localStorage.setItem("name",      data.name      || "");
-      localStorage.setItem("email",     data.email     || email);
-      localStorage.setItem("avatar",    data.avatar    || "");
-      localStorage.setItem("userId",    data.id        || "");
-      localStorage.setItem("mqttTopic", data.mqttTopic || "");
-
+      // ✅ setUser handles all localStorage writes — no need to duplicate them
       setUser({
         token:     data.token,
         role:      data.role,
         name:      data.name      || "",
         email:     data.email     || email,
         avatar:    data.avatar    || null,
-        userId:    data.id        || null,
+        userId:    data.id,           // backend returns `id`
         mqttTopic: data.mqttTopic || null,
       });
 
-      if (data.role === "admin") {
-        navigate("/admin");
-      } else {
-        navigate("/dashboard");
-      }
+      navigate(data.role === "admin" ? "/admin" : "/dashboard");
     } catch (err) {
       console.error(err);
-      alert("Network error. Please try again.");
+      setError("Network error. Please try again.");
     }
   };
 
   // ── Google Login ─────────────────────────────────────────
   const handleGoogleSuccess = async (credentialResponse) => {
+    setError("");
     try {
       // Decode Google JWT to get user info
       const base64Url = credentialResponse.credential.split(".")[1];
-      const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-      const payload = JSON.parse(atob(base64));
+      const base64    = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+      const payload   = JSON.parse(atob(base64));
 
-      // Send to backend — backend will find or create the user
       const res = await fetch("http://localhost:5000/api/auth/google", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -78,18 +68,9 @@ export default function Login() {
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.message || "Google login failed");
+        setError(data.message || "Google login failed");
         return;
       }
-
-      // Save backend token (not the raw Google token)
-      localStorage.setItem("token",     data.token);
-      localStorage.setItem("role",      data.role);
-      localStorage.setItem("name",      data.name      || "");
-      localStorage.setItem("email",     data.email     || "");
-      localStorage.setItem("avatar",    data.avatar    || "");
-      localStorage.setItem("userId",    data.id        || "");
-      localStorage.setItem("mqttTopic", data.mqttTopic || "");
 
       setUser({
         token:     data.token,
@@ -97,14 +78,14 @@ export default function Login() {
         name:      data.name      || "",
         email:     data.email     || "",
         avatar:    data.avatar    || null,
-        userId:    data.id        || null,
+        userId:    data.id,
         mqttTopic: data.mqttTopic || null,
       });
 
       navigate("/dashboard");
     } catch (err) {
       console.error(err);
-      alert("Google login error. Please try again.");
+      setError("Google login error. Please try again.");
     }
   };
 
@@ -137,6 +118,13 @@ export default function Login() {
         />
       </div>
 
+      {/* ✅ Inline error instead of alert() */}
+      {error && (
+        <p style={{ color: "#ef4444", fontSize: "0.875rem", marginTop: "-4px" }}>
+          {error}
+        </p>
+      )}
+
       <button onClick={login} className="auth-btn">
         Login
       </button>
@@ -145,7 +133,7 @@ export default function Login() {
 
       <GoogleLogin
         onSuccess={handleGoogleSuccess}
-        onError={() => alert("Google Login Failed")}
+        onError={() => setError("Google Login Failed")}
       />
 
       <span className="auth-footer">

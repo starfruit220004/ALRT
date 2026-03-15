@@ -1,11 +1,12 @@
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { User, Mail, Camera, Save, X } from 'lucide-react';
+import { User, Mail, Camera, Save, X, Phone } from 'lucide-react';
 
 export default function Profile({ onClose }) {
   const { user, setUser } = useAuth();
   const [editing, setEditing] = useState(false);
-  const [name, setName]       = useState(user?.name || '');
+  const [name, setName]       = useState(user?.name  || '');
+  const [phone, setPhone]     = useState(user?.phone || '');
   const [avatar, setAvatar]   = useState(user?.avatar || null);
   const [preview, setPreview] = useState(user?.avatar || null);
   const [saving, setSaving]   = useState(false);
@@ -36,10 +37,11 @@ export default function Profile({ onClose }) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ name, avatar }),
+        body: JSON.stringify({ name, avatar, phone }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.message || 'Update failed'); return; }
+      localStorage.setItem('phone', data.user.phone || '');
       setUser({ ...user, ...data.user });
       setSuccess('Profile updated!');
       setEditing(false);
@@ -51,9 +53,10 @@ export default function Profile({ onClose }) {
   }
 
   function handleCancel() {
-    setName(user?.name || '');
+    setName(user?.name   || '');
+    setPhone(user?.phone || '');
     setPreview(user?.avatar || null);
-    setAvatar(user?.avatar || null);
+    setAvatar(user?.avatar  || null);
     setEditing(false);
     setError('');
   }
@@ -122,6 +125,23 @@ export default function Profile({ onClose }) {
                 <Mail size={11} /> Email
               </label>
               <p className="text-sm text-slate-800 font-medium">{user?.email || '—'}</p>
+            </div>
+
+            {/* Phone */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                <Phone size={11} /> Phone Number
+              </label>
+              {editing ? (
+                <input
+                  className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={phone}
+                  placeholder="+639XXXXXXXXX"
+                  onChange={e => setPhone(e.target.value)}
+                />
+              ) : (
+                <p className="text-sm text-slate-800 font-medium">{user?.phone || '—'}</p>
+              )}
             </div>
           </div>
 

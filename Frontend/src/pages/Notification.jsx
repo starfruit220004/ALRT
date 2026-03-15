@@ -8,7 +8,6 @@ function Calendar({ smsHistory, selectedDate, onSelectDate }) {
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
 
-  // Set of "YYYY-MM-DD" strings that have SMS data
   const activeDates = new Set(
     smsHistory.map(s => new Date(s.created_at).toISOString().slice(0, 10))
   );
@@ -35,7 +34,6 @@ function Calendar({ smsHistory, selectedDate, onSelectDate }) {
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 w-full">
-      {/* Month nav */}
       <div className="flex items-center justify-between mb-4">
         <button onClick={prevMonth} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors text-gray-500">
           <ChevronLeft size={15} />
@@ -46,18 +44,14 @@ function Calendar({ smsHistory, selectedDate, onSelectDate }) {
         </button>
       </div>
 
-      {/* Day headers */}
       <div className="grid grid-cols-7 mb-1">
         {["Su","Mo","Tu","We","Th","Fr","Sa"].map(d => (
           <div key={d} className="text-center text-[10px] font-semibold text-gray-400 uppercase py-1">{d}</div>
         ))}
       </div>
 
-      {/* Day cells */}
       <div className="grid grid-cols-7 gap-y-1">
-        {/* Empty cells before first day */}
         {Array.from({ length: firstDayOfWeek }).map((_, i) => <div key={`e-${i}`} />)}
-
         {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
           const key = toKey(day);
           const hasData = activeDates.has(key);
@@ -77,7 +71,6 @@ function Calendar({ smsHistory, selectedDate, onSelectDate }) {
               `}
             >
               {day}
-              {/* Dot indicator for days with SMS data */}
               {hasData && !isSelected && (
                 <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-blue-500" />
               )}
@@ -86,7 +79,6 @@ function Calendar({ smsHistory, selectedDate, onSelectDate }) {
         })}
       </div>
 
-      {/* Legend */}
       <div className="flex items-center gap-3 mt-4 pt-3 border-t border-gray-100">
         <div className="flex items-center gap-1.5 text-xs text-gray-400">
           <span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block" /> Has SMS
@@ -158,7 +150,6 @@ const Notifications = () => {
       return { ...log, message, event, date, time };
     });
 
-  // Filter by selected calendar date
   const filteredSms = selectedDate
     ? smsHistory.filter(s => new Date(s.created_at).toISOString().slice(0, 10) === selectedDate)
     : smsHistory;
@@ -175,34 +166,25 @@ const Notifications = () => {
           <h2 className="text-2xl font-bold text-gray-800">SMS Notifications</h2>
           <p className="text-sm text-gray-500 mt-0.5">Automatic SMS alerts sent by the system</p>
         </div>
-        {smsHistory.length > 0 && (
-          <button
-            onClick={handleClearAll}
-            className="flex items-center gap-1.5 px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 text-sm font-medium rounded-lg border border-red-200 transition-colors"
-          >
-            🗑 Clear All
-          </button>
-        )}
-      </div>
-
-      {/* Top row: Total SMS + Toggle */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100 p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-semibold text-blue-400 uppercase tracking-wide">Total SMS Sent</p>
-            <span className="text-xl">💬</span>
+        <div className="flex items-center gap-3">
+          {/* SMS Toggle */}
+          <div className="bg-white rounded-xl border border-gray-200 px-5 py-3 flex items-center gap-4 shadow-sm">
+            <p className="text-sm font-semibold text-gray-800">SMS Notifications</p>
+            <button
+              onClick={handleSmsToggle}
+              className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors duration-300 ${emailEnabled ? "bg-blue-600" : "bg-gray-300"}`}
+            >
+              <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-300 ${emailEnabled ? "translate-x-8" : "translate-x-1"}`} />
+            </button>
           </div>
-          <p className="text-4xl font-bold text-blue-600">{emailEnabled ? smsHistory.length : 0}</p>
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-200 px-5 py-4 flex items-center justify-between shadow-sm">
-          <p className="text-sm font-semibold text-gray-800">SMS Notifications</p>
-          <button
-            onClick={handleSmsToggle}
-            className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors duration-300 ${emailEnabled ? "bg-blue-600" : "bg-gray-300"}`}
-          >
-            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-300 ${emailEnabled ? "translate-x-8" : "translate-x-1"}`} />
-          </button>
+          {smsHistory.length > 0 && (
+            <button
+              onClick={handleClearAll}
+              className="flex items-center gap-1.5 px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 text-sm font-medium rounded-lg border border-red-200 transition-colors"
+            >
+              🗑 Clear All
+            </button>
+          )}
         </div>
       </div>
 
@@ -240,14 +222,13 @@ const Notifications = () => {
                 <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Time</th>
                 <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Event</th>
                 <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Message</th>
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
                 <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Action</th>
               </tr>
             </thead>
             <tbody>
               {!emailEnabled || filteredSms.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-14 text-gray-400">
+                  <td colSpan={5} className="text-center py-14 text-gray-400">
                     <div className="flex flex-col items-center gap-2">
                       <span className="text-3xl">📵</span>
                       <p className="text-sm">
@@ -275,11 +256,6 @@ const Notifications = () => {
                       </span>
                     </td>
                     <td className="px-5 py-3.5 text-gray-600 max-w-xs text-xs leading-relaxed">{sms.message}</td>
-                    <td className="px-5 py-3.5">
-                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">
-                        ✓ Sent
-                      </span>
-                    </td>
                     <td className="px-5 py-3.5">
                       <button
                         onClick={() => handleDeleteLog(sms.id)}

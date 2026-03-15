@@ -7,7 +7,6 @@ const authStyles = `
     --navy:   #0c2340;
     --blue:   #1d4ed8;
     --glow:   #3b82f6;
-    --soft:   #eff6ff;
     --muted:  #64748b;
     --border: #e2e8f0;
     --white:  #ffffff;
@@ -16,126 +15,55 @@ const authStyles = `
   .auth-scene {
     min-height: 100vh;
     display: grid;
-    grid-template-columns: 420px 1fr;
+    grid-template-columns: 55% 45%;
     font-family: 'DM Sans', sans-serif;
   }
 
+  /* ── LEFT PANEL — just the logo ── */
   .auth-panel {
-    background: var(--navy);
     position: relative;
     overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    padding: 48px 44px;
+    background: var(--navy);
   }
 
-  .auth-panel::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background:
-      radial-gradient(ellipse 80% 60% at 110% -10%, rgba(29,78,216,0.45) 0%, transparent 60%),
-      radial-gradient(ellipse 60% 50% at -20% 110%, rgba(59,130,246,0.25) 0%, transparent 55%);
-    pointer-events: none;
-  }
-
-  .auth-panel-logo {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .auth-panel-logo-icon {
-    width: 36px; height: 36px;
-    border-radius: 9px;
-    background: rgba(59,130,246,0.25);
-    border: 1.5px solid rgba(255,255,255,0.2);
-    display: grid;
-    place-items: center;
-  }
-
-  .auth-panel-logo-icon span {
-    width: 14px; height: 14px;
-    border-radius: 3px;
-    background: var(--glow);
+  .auth-panel img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
     display: block;
   }
 
-  .auth-panel-logo-name {
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: rgba(255,255,255,0.7);
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-  }
-
-  .auth-panel-body {
-    position: relative;
-    z-index: 1;
-  }
-
-  .auth-panel-heading {
-    font-family: 'DM Serif Display', serif;
-    font-size: 2.6rem;
-    line-height: 1.2;
-    color: #fff;
-    margin-bottom: 16px;
-  }
-
-  .auth-panel-heading em {
-    font-style: italic;
-    color: var(--glow);
-  }
-
-  .auth-panel-desc {
-    font-size: 0.9rem;
-    color: rgba(255,255,255,0.45);
-    line-height: 1.75;
-    max-width: 260px;
-  }
-
-  .auth-panel-dots {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    gap: 7px;
-  }
-
-  .auth-dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.18);
-    transition: background 0.25s;
-  }
-
-  .auth-dot.active { background: var(--glow); }
-
+  /* ── RIGHT SIDE — plain white, NO card ── */
   .auth-form-side {
-    background: var(--soft);
+    background: #ffffff;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 48px 32px;
+    padding: 60px 52px;
+    position: relative;
   }
 
-  .auth-form-card {
+  .auth-form-side::before {
+    content: '';
+    position: absolute;
+    top: 10%; left: 0;
+    width: 1px;
+    height: 80%;
+    background: linear-gradient(to bottom, transparent, var(--border), transparent);
+  }
+
+  .auth-form-inner {
     width: 100%;
-    max-width: 400px;
-    background: var(--white);
-    border-radius: 20px;
-    border: 1px solid var(--border);
-    padding: 44px 40px;
-    box-shadow: 0 8px 40px rgba(12,35,64,0.07);
+    max-width: 340px;
     animation: authFadeUp 0.4s ease both;
   }
 
+  /* ── SHARED FORM STYLES ── */
   .auth-eyebrow {
     font-size: 0.7rem;
-    font-weight: 500;
-    letter-spacing: 0.14em;
+    font-weight: 600;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--blue);
     margin-bottom: 8px;
@@ -143,7 +71,7 @@ const authStyles = `
 
   .auth-title {
     font-family: 'DM Serif Display', serif;
-    font-size: 1.9rem;
+    font-size: 2.1rem;
     color: var(--navy);
     margin-bottom: 6px;
   }
@@ -231,11 +159,10 @@ const authStyles = `
     font-weight: 500;
   }
 
-  @media (max-width: 720px) {
+  @media (max-width: 768px) {
     .auth-scene { grid-template-columns: 1fr; }
     .auth-panel  { display: none; }
-    .auth-form-side { padding: 24px 16px; }
-    .auth-form-card { padding: 32px 24px; }
+    .auth-form-side { padding: 48px 28px; }
   }
 
   @keyframes authFadeUp {
@@ -244,59 +171,20 @@ const authStyles = `
   }
 `;
 
-const PANEL_DATA = [
-  {
-    heading: (
-      <>
-        <em>Simple.</em><br />Secure.<br />Yours.
-      </>
-    ),
-    desc: "A secure space built for clarity, privacy, and simplicity."
-  },
-  {
-    heading: (
-      <>
-        <em>Join</em><br />something<br />bigger.
-      </>
-    ),
-    desc: "Create an account and get started in seconds."
-  },
-  {
-    heading: (
-      <>
-        Forgot?<br /><em>No worries.</em><br />We've got you.
-      </>
-    ),
-    desc: "Enter your email and we'll send you instructions to reset your password."
-  }
-];
-
 export default function AuthLayout({ children, dotActive }) {
-  const panel = PANEL_DATA[dotActive];
   return (
     <>
       <style>{authStyles}</style>
       <div className="auth-scene">
 
+        {/* ── LEFT — full logo image ── */}
         <div className="auth-panel">
-          <div className="auth-panel-logo">
-            <div className="auth-panel-logo-icon"><span /></div>
-            {/* FIX: changed from SmartDoor to Smart Alert */}
-            <span className="auth-panel-logo-name">Smart Alert</span>
-          </div>
-          <div className="auth-panel-body">
-            <h1 className="auth-panel-heading">{panel.heading}</h1>
-            <p className="auth-panel-desc">{panel.desc}</p>
-          </div>
-          <div className="auth-panel-dots">
-            {[0, 1, 2].map(i => (
-              <div key={i} className={`auth-dot${i === dotActive ? " active" : ""}`} />
-            ))}
-          </div>
+          <img src="/logo.jpg" alt="Smart Alert" />
         </div>
 
+        {/* ── RIGHT — plain white, no card ── */}
         <div className="auth-form-side">
-          <div className="auth-form-card">
+          <div className="auth-form-inner">
             {children}
           </div>
         </div>

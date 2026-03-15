@@ -3,11 +3,14 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { User, LogOut } from "lucide-react";
 import UserSearchFilter from "../components/UserSearchFilter";
+import AddUserModal from "./AddUserModal";
+import Profile from "../components/Profile";
 
 export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [editingUser, setEditingUser] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "user" });
   const [message, setMessage] = useState("");
   const [copiedId, setCopiedId] = useState(null);
@@ -39,19 +42,6 @@ export default function AdminDashboard() {
   }, [getHeaders]);
 
   useEffect(() => { loadUsers(); }, [loadUsers]);
-
-  const handleAdd = async () => {
-    if (!form.name || !form.email || !form.password) return notify("❌ Please fill all fields");
-    const res = await fetch("http://localhost:5000/api/admin/users", {
-      method: "POST", headers: getHeaders(), body: JSON.stringify(form)
-    });
-    const data = await res.json();
-    if (!res.ok) return notify(`❌ ${data.message}`);
-    notify("✅ User created!");
-    setForm({ name: "", email: "", password: "", role: "user" });
-    setShowAddForm(false);
-    loadUsers();
-  };
 
   const handleUpdate = async () => {
     const res = await fetch(`http://localhost:5000/api/admin/users/${editingUser.id}`, {
@@ -91,6 +81,15 @@ export default function AdminDashboard() {
   return (
     <div className="p-6 bg-gray-50 min-h-screen space-y-6">
 
+      <AddUserModal
+        isOpen={showAddForm}
+        onClose={() => setShowAddForm(false)}
+        getHeaders={getHeaders}
+        onSuccess={(msg) => { notify(msg); loadUsers(); }}
+      />
+
+      {showProfile && <Profile onClose={() => setShowProfile(false)} />}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -98,8 +97,8 @@ export default function AdminDashboard() {
           <p className="text-sm text-gray-500 mt-0.5">Manage users and monitor all door activity</p>
         </div>
 
-        {/* Profile */}
-        <div onClick={() => navigate('/admin/profile')} className="flex flex-col items-center gap-1 cursor-pointer group">
+        {/* Profile click now opens modal */}
+        <div onClick={() => setShowProfile(true)} className="flex flex-col items-center gap-1 cursor-pointer group">
           <div className="w-11 h-11 rounded-full bg-blue-600 flex items-center justify-center overflow-hidden ring-2 ring-blue-400 ring-offset-2 ring-offset-gray-50 group-hover:ring-blue-500 transition-all shrink-0">
             {user?.avatar
               ? <img src={user.avatar} alt="avatar" className="w-full h-full object-cover" />
@@ -162,9 +161,9 @@ export default function AdminDashboard() {
             <h2 className="font-semibold text-gray-800">Users</h2>
             <p className="text-xs text-gray-400 mt-0.5">{filteredUsers.length} of {users.length} account{users.length !== 1 ? "s" : ""}</p>
           </div>
-          <button onClick={() => setShowAddForm(!showAddForm)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${showAddForm ? "bg-gray-100 text-gray-600 hover:bg-gray-200" : "bg-blue-600 text-white hover:bg-blue-700"}`}>
-            {showAddForm ? "✕ Cancel" : "+ Add User"}
+          <button onClick={() => setShowAddForm(true)}
+            className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors bg-blue-600 text-white hover:bg-blue-700">
+            + Add User
           </button>
         </div>
 
@@ -175,25 +174,6 @@ export default function AdminDashboard() {
           roleFilter={roleFilter}
           setRoleFilter={setRoleFilter}
         />
-
-        {showAddForm && (
-          <div className="border-b border-gray-100 p-5 bg-gray-50 grid grid-cols-2 gap-3">
-            <input className="border border-gray-200 p-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" placeholder="Full Name"
-              value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
-            <input className="border border-gray-200 p-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" placeholder="Email address"
-              value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
-            <input className="border border-gray-200 p-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" placeholder="Password" type="password"
-              value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
-            <select className="border border-gray-200 p-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
-              value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
-            </select>
-            <button onClick={handleAdd} className="col-span-2 bg-green-600 text-white p-2.5 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors">
-              Create User
-            </button>
-          </div>
-        )}
 
         {filteredUsers.length === 0 ? (
           <div className="flex flex-col items-center py-12 text-gray-400 gap-2">
@@ -252,7 +232,7 @@ export default function AdminDashboard() {
                       <td className="px-5 py-3.5">
                         {u.mqtt_topic ? (
                           <div className="flex items-center gap-1.5">
-                            <code className="text-xs text-blue-700 font-mono bg-blue-50 px-2 py-0.5 rounded border border-blue-100 truncate max-w-[160px]">{u.mqtt_topic}</code>
+                            <code className="text-xs text-blue-700 font-mono bg-blue-50 px-2 py-0.5 rounded border border-blue-100 truncate max-w-40">{u.mqtt_topic}</code>
                             <button onClick={() => handleCopyTopic(u.mqtt_topic, u.id)}
                               className="text-xs text-gray-400 hover:text-blue-600 transition-colors shrink-0">
                               {copiedId === u.id ? '✅' : '📋'}

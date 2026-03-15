@@ -9,14 +9,13 @@ export const DoorProvider = ({ children }) => {
   const [alarmEnabled, setAlarmEnabled] = useState(false);
   const [emailEnabled, setEmailEnabled] = useState(false);
 
+  // ── Fetch logs and settings on mount ──
   useEffect(() => {
     const token  = localStorage.getItem("token");
     const userId = localStorage.getItem("userId");
 
-    // Stop here if not logged in — prevents 401 errors on login screen
     if (!token) return;
 
-    // Join the user's private socket room for real-time door updates
     if (userId) socket.emit("join_user_room", userId);
 
     const fetchLogs = async () => {
@@ -29,7 +28,7 @@ export const DoorProvider = ({ children }) => {
         setLogs(Array.isArray(data) ? data : []);
         if (data.length > 0) setDoorStatus(data[0].status);
       } catch (err) {
-        console.error("Network or server error:", err);
+        console.error("Error fetching logs:", err);
       }
     };
 
@@ -53,6 +52,7 @@ export const DoorProvider = ({ children }) => {
     fetchSettings();
   }, []);
 
+  // ── Socket listeners for real-time updates ──
   useEffect(() => {
     const handleDoorUpdate = (data) => {
       setDoorStatus(data.status);
@@ -63,7 +63,7 @@ export const DoorProvider = ({ children }) => {
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         const oscillator = ctx.createOscillator();
-        const gainNode = ctx.createGain();
+        const gainNode   = ctx.createGain();
         oscillator.connect(gainNode);
         gainNode.connect(ctx.destination);
         oscillator.type = "square";
@@ -71,17 +71,17 @@ export const DoorProvider = ({ children }) => {
         gainNode.gain.setValueAtTime(1, ctx.currentTime);
         oscillator.start();
         oscillator.stop(ctx.currentTime + 2);
-        console.log("Alarm sound played!");
+        console.log("🔔 Alarm sound played!");
       } catch (err) {
         console.error("Error playing alarm sound:", err);
       }
     };
 
-    socket.on("door_update", handleDoorUpdate);
-    socket.on("trigger_alarm", handleAlarmTrigger);
+    socket.on("door_update",    handleDoorUpdate);
+    socket.on("trigger_alarm",  handleAlarmTrigger);
 
     return () => {
-      socket.off("door_update", handleDoorUpdate);
+      socket.off("door_update",   handleDoorUpdate);
       socket.off("trigger_alarm", handleAlarmTrigger);
     };
   }, []);
