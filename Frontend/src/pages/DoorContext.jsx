@@ -4,12 +4,12 @@ import socket from "../socket";
 export const DoorContext = createContext();
 
 export const DoorProvider = ({ children }) => {
-  const [doorStatus,   setDoorStatus]   = useState("Closed");
-  const [logs,         setLogs]         = useState([]);
+  const [doorStatus,   setDoorStatus]   = useState(null);
+  const [activityLogs, setActivityLogs] = useState([]);
+  const [smsLogs,      setSmsLogs]      = useState([]);
   const [alarmEnabled, setAlarmEnabled] = useState(false);
   const [emailEnabled, setEmailEnabled] = useState(false);
 
-  // ── Fetch logs and settings on mount ──
   useEffect(() => {
     const token  = localStorage.getItem("token");
     const userId = localStorage.getItem("userId");
@@ -18,17 +18,32 @@ export const DoorProvider = ({ children }) => {
 
     if (userId) socket.emit("join_user_room", userId);
 
-    const fetchLogs = async () => {
+    const fetchActivityLogs = async () => {
       try {
         const res = await fetch("http://localhost:5000/api/dashboard/logs", {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) return;
         const data = await res.json();
-        setLogs(Array.isArray(data) ? data : []);
+        if (!Array.isArray(data)) return;
+        setActivityLogs(data);
         if (data.length > 0) setDoorStatus(data[0].status);
       } catch (err) {
-        console.error("Error fetching logs:", err);
+        console.error("Error fetching activity logs:", err);
+      }
+    };
+
+    const fetchSmsLogs = async () => {
+      try {
+        const res = await fetch("http://localhost:5000/api/dashboard/sms-logs", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!Array.isArray(data)) return;
+        setSmsLogs(data);
+      } catch (err) {
+        console.error("Error fetching SMS logs:", err);
       }
     };
 
@@ -48,41 +63,27 @@ export const DoorProvider = ({ children }) => {
       }
     };
 
-    fetchLogs();
+    fetchActivityLogs();
+    fetchSmsLogs();
     fetchSettings();
   }, []);
 
-  // ── Socket listeners for real-time updates ──
   useEffect(() => {
     const handleDoorUpdate = (data) => {
       setDoorStatus(data.status);
-      setLogs((prev) => [data, ...prev]);
+      setActivityLogs((prev) => [data, ...prev]);
     };
 
-    const handleAlarmTrigger = () => {
-      try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = ctx.createOscillator();
-        const gainNode   = ctx.createGain();
-        oscillator.connect(gainNode);
-        gainNode.connect(ctx.destination);
-        oscillator.type = "square";
-        oscillator.frequency.setValueAtTime(880, ctx.currentTime);
-        gainNode.gain.setValueAtTime(1, ctx.currentTime);
-        oscillator.start();
-        oscillator.stop(ctx.currentTime + 2);
-        console.log("🔔 Alarm sound played!");
-      } catch (err) {
-        console.error("Error playing alarm sound:", err);
-      }
+    const handleSmsUpdate = (data) => {
+      setSmsLogs((prev) => [data, ...prev]);
     };
 
-    socket.on("door_update",    handleDoorUpdate);
-    socket.on("trigger_alarm",  handleAlarmTrigger);
+    socket.on("door_update", handleDoorUpdate);
+    socket.on("sms_update",  handleSmsUpdate);
 
     return () => {
-      socket.off("door_update",   handleDoorUpdate);
-      socket.off("trigger_alarm", handleAlarmTrigger);
+      socket.off("door_update", handleDoorUpdate);
+      socket.off("sms_update",  handleSmsUpdate);
     };
   }, []);
 
@@ -90,7 +91,8 @@ export const DoorProvider = ({ children }) => {
     <DoorContext.Provider
       value={{
         doorStatus,   setDoorStatus,
-        logs,         setLogs,
+        activityLogs, setActivityLogs,
+        smsLogs,      setSmsLogs,
         alarmEnabled, setAlarmEnabled,
         emailEnabled, setEmailEnabled,
       }}

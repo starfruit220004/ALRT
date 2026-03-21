@@ -1,19 +1,21 @@
 const express = require('express');
-const router = express.Router();
-const pool = require('../config/db');              // ← ADD THIS
-const {
-    toggleAlarm,
-    toggleSMS,
-    getSettings
-} = require('../controllers/settingsController');
+const router  = require('express').Router();
+const pool    = require('../config/db');
+const { toggleAlarm, toggleSMS, getSettings } = require('../controllers/settingsController');
 const { verifyToken } = require('../middleware/authMiddleware');
 
-router.get('/', verifyToken, getSettings);
+// ─────────────────────────────────────────
+// AUTHENTICATED ROUTES (Frontend)
+// ─────────────────────────────────────────
+router.get ('/',      verifyToken, getSettings);
 router.post('/alarm', verifyToken, toggleAlarm);
-router.post('/sms', verifyToken, toggleSMS);
+router.post('/sms',   verifyToken, toggleSMS);
 
-// GET settings for a specific user (for ESP32)
-router.get('/:userId', async (req, res) => {    // ← FIXED: removed extra /settings
+// ─────────────────────────────────────────
+// PUBLIC ROUTE (ESP32 — no token required)
+// Must be LAST to avoid intercepting /alarm and /sms
+// ─────────────────────────────────────────
+router.get('/:userId', async (req, res) => {
   const { userId } = req.params;
   try {
     const result = await pool.query(
@@ -22,10 +24,9 @@ router.get('/:userId', async (req, res) => {    // ← FIXED: removed extra /set
     );
     if (result.rows.length === 0)
       return res.status(404).json({ message: 'Settings not found' });
-
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Error fetching settings:', err);
+    console.error('Error fetching settings for ESP32:', err.message);
     res.status(500).json({ message: 'Server error' });
   }
 });

@@ -15,33 +15,82 @@ const authStyles = `
   .auth-scene {
     min-height: 100vh;
     display: grid;
-    grid-template-columns: 55% 45%;
+    grid-template-columns: 70% 30%;
     font-family: 'DM Sans', sans-serif;
   }
 
-  /* ── LEFT PANEL — just the logo ── */
   .auth-panel {
     position: relative;
     overflow: hidden;
     background: var(--navy);
   }
 
-  .auth-panel img {
+  .auth-panel-inner {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 32px;
+    pointer-events: none;
+    text-align: center;
+    gap: 0;
+  }
+
+  .auth-panel-logo {
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin-bottom: 28px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    border: 3px solid rgba(255,255,255,0.12);
+  }
+
+  .auth-panel-logo img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    object-position: center;
-    display: block;
   }
 
-  /* ── RIGHT SIDE — plain white, NO card ── */
+  .auth-panel-label {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 10px;
+  }
+
+  .auth-panel-headline {
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(2.4rem, 3.5vw, 3.4rem);
+    font-weight: 800;
+    line-height: 1.2;
+    color: #fff;
+    letter-spacing: -0.02em;
+    margin-bottom: 10px;
+  }
+
+  .auth-panel-sub {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1rem;
+    color: rgba(255,255,255,0.5);
+    font-weight: 400;
+    line-height: 1.6;
+    max-width: 200px;
+  }
+
   .auth-form-side {
     background: #ffffff;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 60px 52px;
+    padding: 32px 44px;
     position: relative;
+    overflow-y: auto;
   }
 
   .auth-form-side::before {
@@ -57,11 +106,11 @@ const authStyles = `
     width: 100%;
     max-width: 340px;
     animation: authFadeUp 0.4s ease both;
+    padding: 16px 0;
   }
 
-  /* ── SHARED FORM STYLES ── */
   .auth-eyebrow {
-    font-size: 0.7rem;
+    font-size: 0.85rem;
     font-weight: 600;
     letter-spacing: 0.16em;
     text-transform: uppercase;
@@ -71,15 +120,15 @@ const authStyles = `
 
   .auth-title {
     font-family: 'DM Serif Display', serif;
-    font-size: 2.1rem;
+    font-size: 2.4rem;
     color: var(--navy);
     margin-bottom: 6px;
   }
 
   .auth-sub {
-    font-size: 0.85rem;
+    font-size: 1rem;
     color: var(--muted);
-    margin-bottom: 32px;
+    margin-bottom: 20px;
     font-weight: 300;
   }
 
@@ -89,11 +138,11 @@ const authStyles = `
     font-weight: 500;
   }
 
-  .auth-field { margin-bottom: 14px; }
+  .auth-field { margin-bottom: 10px; }
 
   .auth-label {
     display: block;
-    font-size: 0.78rem;
+    font-size: 0.88rem;
     font-weight: 500;
     color: var(--navy);
     margin-bottom: 6px;
@@ -105,7 +154,7 @@ const authStyles = `
     padding: 11px 15px;
     border: 1.5px solid var(--border);
     border-radius: 10px;
-    font-size: 0.88rem;
+    font-size: 0.95rem;
     font-family: 'DM Sans', sans-serif;
     color: var(--navy);
     background: #fff;
@@ -120,6 +169,17 @@ const authStyles = `
     box-shadow: 0 0 0 3px rgba(29,78,216,0.1);
   }
 
+  .auth-input--error {
+    border-color: #ef4444;
+  }
+
+  .auth-error {
+    color: #ef4444;
+    font-size: 0.75rem;
+    margin-top: 3px;
+    display: block;
+  }
+
   .auth-btn {
     width: 100%;
     padding: 12px;
@@ -127,11 +187,11 @@ const authStyles = `
     color: #fff;
     border: none;
     border-radius: 10px;
-    font-size: 0.88rem;
+    font-size: 1rem;
     font-weight: 500;
     font-family: 'DM Sans', sans-serif;
     cursor: pointer;
-    margin-top: 6px;
+    margin-top: 4px;
     letter-spacing: 0.03em;
     transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
     box-shadow: 0 4px 16px rgba(29,78,216,0.28);
@@ -145,10 +205,16 @@ const authStyles = `
 
   .auth-btn:active { transform: translateY(0); }
 
+  .auth-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
   .auth-footer {
     display: block;
     text-align: center;
-    margin-top: 16px;
+    margin-top: 10px;
     font-size: 0.8rem;
     color: var(--muted);
   }
@@ -159,10 +225,48 @@ const authStyles = `
     font-weight: 500;
   }
 
+  /* ── RESPONSIVE ── */
+  @media (max-width: 1024px) {
+    .auth-scene {
+      grid-template-columns: 55% 45%;
+    }
+    .auth-form-side {
+      padding: 32px 28px;
+    }
+  }
+
   @media (max-width: 768px) {
-    .auth-scene { grid-template-columns: 1fr; }
-    .auth-panel  { display: none; }
-    .auth-form-side { padding: 48px 28px; }
+    .auth-scene {
+      grid-template-columns: 1fr;
+      min-height: 100vh;
+    }
+    .auth-panel {
+      display: none;
+    }
+    .auth-form-side {
+      padding: 40px 24px;
+      min-height: 100vh;
+      align-items: flex-start;
+      padding-top: 48px;
+    }
+    .auth-form-side::before {
+      display: none;
+    }
+    .auth-form-inner {
+      max-width: 100%;
+    }
+    .auth-title {
+      font-size: 2rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .auth-form-side {
+      padding: 32px 20px;
+    }
+    .auth-title {
+      font-size: 1.8rem;
+    }
   }
 
   @keyframes authFadeUp {
@@ -171,18 +275,34 @@ const authStyles = `
   }
 `;
 
+const PANEL_LABELS = ["Welcome Back", "Get Started", "Account Recovery"];
+const PANEL_HEADLINES = [
+  ["Stay ALERT,", "Stay ALRIGHT."],
+  ["Stay ALERT,", "Stay ALRIGHT."],
+  ["Stay ALERT,", "Stay ALRIGHT."],
+];
+
 export default function AuthLayout({ children, dotActive }) {
+  const idx = dotActive ?? 0;
+
   return (
     <>
       <style>{authStyles}</style>
       <div className="auth-scene">
 
-        {/* ── LEFT — full logo image ── */}
+        {/* LEFT — solid navy background */}
         <div className="auth-panel">
-          <img src="/logo.jpg" alt="Smart Alert" />
+          <div className="auth-panel-inner">
+            <div className="auth-panel-logo">
+              <img src="/logo.jpg" alt="ALRT" />
+            </div>
+            <span className="auth-panel-label">{PANEL_LABELS[idx]}</span>
+            <div className="auth-panel-headline">{PANEL_HEADLINES[idx][0]}<br/>{PANEL_HEADLINES[idx][1]}</div>
+            <p className="auth-panel-sub">Real-time IoT safety monitoring.</p>
+          </div>
         </div>
 
-        {/* ── RIGHT — plain white, no card ── */}
+        {/* RIGHT — plain white */}
         <div className="auth-form-side">
           <div className="auth-form-inner">
             {children}

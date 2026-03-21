@@ -4,11 +4,11 @@ const pool = require('../config/db');
 const { verifyToken, isAdmin } = require('../middleware/authMiddleware');
 const bcrypt = require('bcrypt');
 
-// GET all users — include mqtt_topic so admin can see/share it with each customer
+// GET all users — include mqtt_topic, is_active, deactivated_at
 router.get('/users', verifyToken, isAdmin, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, name, email, role, mqtt_topic FROM users ORDER BY id'
+      'SELECT id, name, email, role, mqtt_topic, is_active, deactivated_at FROM users ORDER BY id'
     );
     res.json(result.rows);
   } catch (err) {
@@ -49,7 +49,8 @@ router.put('/users/:id', verifyToken, isAdmin, async (req, res) => {
   const { name, email, role } = req.body;
   try {
     const result = await pool.query(
-      'UPDATE users SET name=$1, email=$2, role=$3 WHERE id=$4 RETURNING id, name, email, role, mqtt_topic',
+      `UPDATE users SET name=$1, email=$2, role=$3 WHERE id=$4
+       RETURNING id, name, email, role, mqtt_topic, is_active, deactivated_at`,
       [name, email, role, id]
     );
     if (result.rows.length === 0)
@@ -60,16 +61,37 @@ router.put('/users/:id', verifyToken, isAdmin, async (req, res) => {
   }
 });
 
-// DELETE user
-router.delete('/users/:id', verifyToken, isAdmin, async (req, res) => {
+// DEACTIVATE user — blocks login, records deactivated_at for 1-year auto-delete
+router.patch('/users/:id/deactivate', verifyToken, isAdmin, async (req, res) => {
   const { id } = req.params;
   try {
-    const result = await pool.query('DELETE FROM users WHERE id=$1 RETURNING id', [id]);
+    const result = await pool.query(
+      'UPDATE users SET is_active=FALSE, deactivated_at=NOW() WHERE id=$1 RETURNING id',
+      [id]
+    );
     if (result.rows.length === 0)
       return res.status(404).json({ message: 'User not found' });
-    res.json({ message: 'User deleted' });
+    res.json({ message: 'Account deactivated.' });
   } catch (err) {
-    res.status(500).json({ message: 'Error deleting user' });
+    console.error('Error deactivating user:', err.message);
+    res.status(500).json({ message: 'Error deactivating user' });
+  }
+});
+
+// ACTIVATE user — restores login access, clears deactivated_at
+router.patch('/users/:id/activate', verifyToken, isAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      'UPDATE users SET is_active=TRUE, deactivated_at=NULL WHERE id=$1 RETURNING id',
+      [id]
+    );
+    if (result.rows.length === 0)
+      return res.status(404).json({ message: 'User not found' });
+    res.json({ message: 'Account activated.' });
+  } catch (err) {
+    console.error('Error activating user:', err.message);
+    res.status(500).json({ message: 'Error activating user' });
   }
 });
 
@@ -77,7 +99,7 @@ router.delete('/users/:id', verifyToken, isAdmin, async (req, res) => {
 router.get('/alerts', verifyToken, isAdmin, async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT door_logs.*, users.name as user_name, users.email as user_email
+      SELECT door_logs.*, users.name AS user_name, users.email AS user_email
       FROM door_logs
       LEFT JOIN users ON door_logs.user_id = users.id
       ORDER BY door_logs.created_at DESC

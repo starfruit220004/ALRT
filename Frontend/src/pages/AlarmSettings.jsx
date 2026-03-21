@@ -5,7 +5,6 @@ const AlarmSetting = () => {
   const { alarmEnabled, setAlarmEnabled } = useContext(DoorContext);
   const token = localStorage.getItem("token");
 
-  // ✅ now saves to DB
   const handleToggle = async () => {
     const newValue = !alarmEnabled;
     setAlarmEnabled(newValue);
@@ -24,27 +23,28 @@ const AlarmSetting = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-5 md:space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-800">Alarm Settings</h2>
+        <h2 className="text-xl md:text-2xl font-bold text-gray-800">Alarm Settings</h2>
         <p className="text-sm text-gray-500">Configure alarm behavior and restricted hours</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Alarm Config Card */}
+        <div className="bg-white rounded-xl border border-gray-200 p-5 md:p-6 space-y-4">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-lg">🔔</div>
+            <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-lg flex-shrink-0">🔔</div>
             <p className="font-semibold text-gray-800">Alarm Configuration</p>
           </div>
 
-          <div className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-4">
-            <div>
+          <div className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-4 gap-4">
+            <div className="min-w-0">
               <p className="text-sm font-semibold text-gray-800">Master Alarm System</p>
               <p className="text-xs text-gray-400 mt-0.5">Enable or disable all alerts</p>
             </div>
             <button
               onClick={handleToggle}
-              className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors duration-300 ${alarmEnabled ? "bg-blue-600" : "bg-gray-300"}`}
+              className={`relative inline-flex h-7 w-14 flex-shrink-0 items-center rounded-full transition-colors duration-300 ${alarmEnabled ? "bg-blue-600" : "bg-gray-300"}`}
             >
               <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-300 ${alarmEnabled ? "translate-x-8" : "translate-x-1"}`} />
             </button>
@@ -52,15 +52,16 @@ const AlarmSetting = () => {
 
           {alarmEnabled && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-blue-700 text-sm font-medium flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse inline-block" />
+              <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse inline-block flex-shrink-0" />
               Alarm system is active
             </div>
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+        {/* System Info Card */}
+        <div className="bg-white rounded-xl border border-gray-200 p-5 md:p-6 space-y-4">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-9 h-9 rounded-full bg-orange-100 flex items-center justify-center text-lg">🕐</div>
+            <div className="w-9 h-9 rounded-full bg-orange-100 flex items-center justify-center text-lg flex-shrink-0">🕐</div>
             <p className="font-semibold text-gray-800">System Info</p>
           </div>
           <p className="text-xs text-gray-400">

@@ -1,76 +1,121 @@
+// src/App.jsx
 import React, { useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { DoorProvider } from "./pages/DoorContext";
 import Sidebar from "./components/Sidebar";
 
+// Auth
 import Login          from "./authentication/login";
 import Signup         from "./authentication/signup";
 import ForgotPassword from "./authentication/forgotPassword";
 import ResetPassword  from "./authentication/resetPassword";
+
+// Pages
 import Dashboard      from "./pages/Dashboard";
 import ActivityLog    from "./pages/ActivityLog";
 import AlarmSetting   from "./pages/AlarmSettings";
 import Notifications  from "./pages/Notification";
+import Reports        from "./pages/Reports";
 import Profile        from "./components/Profile";
 import AdminDashboard from "./admin_pages/adminDashboard";
 
+// Landing Page
+import Navbar    from "./Landing Page/navbar";
+import Home      from "./Landing Page/home";
+import Services  from "./Landing Page/services";
+import About     from "./Landing Page/about";
+import Contact   from "./Landing Page/contact";
+
+// ─── Landing ─────────────────────────────────────────────────
+function LandingPage() {
+  return (
+    <>
+      <Navbar />
+      <Home />
+      <Services />
+      <About />
+      <Contact />
+      <footer className="bg-[#060f1e] border-t border-white/[0.06] py-6 text-center">
+        <p className="text-slate-600 text-xs">© 2024 Smart Alert — IoT Safety Monitoring System</p>
+      </footer>
+    </>
+  );
+}
+
+// ─── Route Guards ─────────────────────────────────────────────
+// ✅ DoorProvider removed from here — now lives once in Layout
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
-  if (loading)
-    return <div className="flex items-center justify-center h-screen text-slate-500">Loading...</div>;
-  return user ? <DoorProvider>{children}</DoorProvider> : <Navigate to="/" />;
+  if (loading) return (
+    <div className="flex items-center justify-center h-screen text-slate-500">
+      Loading...
+    </div>
+  );
+  return user ? children : <Navigate to="/login" />;
 }
 
 function AdminRoute({ children }) {
   const { user, loading } = useAuth();
-  if (loading)
-    return <div className="flex items-center justify-center h-screen text-slate-500">Loading...</div>;
-  if (!user) return <Navigate to="/" />;
+  if (loading) return (
+    <div className="flex items-center justify-center h-screen text-slate-500">
+      Loading...
+    </div>
+  );
+  if (!user) return <Navigate to="/login" />;
   if (user.role !== "admin") return <Navigate to="/dashboard" />;
   return children;
 }
 
+// ─── Layout ───────────────────────────────────────────────────
 function Layout() {
   const location = useLocation();
   const [showProfile, setShowProfile] = useState(false);
 
-  const authPages  = ["/", "/signup", "/forgot", "/reset-password"];
-  const isAuthPage = authPages.includes(location.pathname);
+  const isAuthPage  = ["/login", "/signup", "/forgot", "/reset-password"].includes(location.pathname);
   const isAdminPage = location.pathname.startsWith("/admin");
-  const showSidebar = !isAuthPage && !isAdminPage;
+  const isLanding   = location.pathname === "/";
+  const showSidebar = !isAuthPage && !isAdminPage && !isLanding;
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {showSidebar && <Sidebar onProfileClick={() => setShowProfile(true)} />}
 
-      <main className={`flex-1 overflow-auto ${showSidebar ? "p-6" : ""}`}>
-        <Routes>
-          {/* Auth */}
-          <Route path="/"               element={<Login />} />
-          <Route path="/signup"         element={<Signup />} />
-          <Route path="/forgot"         element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
+      {/* ✅ Single DoorProvider wraps all routes — all pages share one context */}
+      <DoorProvider>
+        <main className={`flex-1 overflow-auto ${showSidebar ? "md:p-6" : ""}`}>
+          <Routes>
+            {/* Landing */}
+            <Route path="/"               element={<LandingPage />} />
 
-          {/* User */}
-          <Route path="/dashboard"     element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/logs"          element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
-          <Route path="/alarm"         element={<ProtectedRoute><AlarmSetting /></ProtectedRoute>} />
-          <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+            {/* Auth */}
+            <Route path="/login"          element={<Login />} />
+            <Route path="/signup"         element={<Signup />} />
+            <Route path="/forgot"         element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
-          {/* Admin — profile is now a modal inside AdminDashboard, not a route */}
-          <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+            {/* User */}
+            <Route path="/dashboard"      element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/logs"           element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
+            <Route path="/alarm"          element={<ProtectedRoute><AlarmSetting /></ProtectedRoute>} />
+            <Route path="/notifications"  element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+            <Route path="/reports"        element={<ProtectedRoute><Reports /></ProtectedRoute>} />
 
-          {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </main>
+            {/* Admin */}
+            <Route path="/admin"          element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+
+            {/* Catch-all */}
+            <Route path="*"               element={<Navigate to="/" replace />} />
+          </Routes>
+        </main>
+      </DoorProvider>
 
       {showProfile && <Profile onClose={() => setShowProfile(false)} />}
     </div>
   );
 }
 
+// ─── App ──────────────────────────────────────────────────────
 export default function App() {
   return (
     <AuthProvider>

@@ -11,7 +11,7 @@ export default function ForgotPassword() {
   const sendReset = async () => {
     setError("");
 
-    if (!email) {
+    if (!email.trim()) {
       setError("Please enter your email address.");
       return;
     }
@@ -31,7 +31,7 @@ export default function ForgotPassword() {
         return;
       }
 
-      setSent(true); // Show success message
+      setSent(true);
     } catch (err) {
       setError("Network Error: Please ensure your backend server is running.");
     } finally {
@@ -44,17 +44,17 @@ export default function ForgotPassword() {
       <p className="auth-eyebrow">Account recovery</p>
       <h2 className="auth-title">Forgot Password</h2>
       <p className="auth-sub">
-        Remembered it? <Link to="/">Back to login →</Link>
+        Remembered it? <Link to="/login">Back to login →</Link>
       </p>
 
       {sent ? (
-        <p style={{ color: "green", marginTop: "12px", fontSize: "14px" }}>
+        <p style={{ color: "#22c55e", marginTop: "12px", fontSize: "14px" }}>
           ✅ A password reset link has been sent to your email!
         </p>
       ) : (
         <>
           {error && (
-            <p style={{ color: "red", marginBottom: "8px", fontSize: "14px" }}>
+            <p style={{ color: "#ef4444", marginBottom: "8px", fontSize: "14px" }}>
               {error}
             </p>
           )}
@@ -68,6 +68,7 @@ export default function ForgotPassword() {
               placeholder="you@example.com"
               onChange={(e) => setEmail(e.target.value)}
               disabled={loading}
+              onKeyDown={(e) => e.key === "Enter" && sendReset()}
             />
           </div>
 

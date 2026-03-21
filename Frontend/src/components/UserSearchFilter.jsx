@@ -2,7 +2,8 @@ import { Search } from "lucide-react";
 
 export default function UserSearchFilter({ search, setSearch, roleFilter, setRoleFilter }) {
   return (
-    <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 bg-gray-50">
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 px-4 sm:px-5 py-3 border-b border-gray-100 bg-gray-50">
+
       {/* Search input */}
       <div className="relative flex-1">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -16,12 +17,12 @@ export default function UserSearchFilter({ search, setSearch, roleFilter, setRol
       </div>
 
       {/* Role filter buttons */}
-      <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1">
+      <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1 self-start sm:self-auto">
         {["all", "user", "admin"].map(r => (
           <button
             key={r}
             onClick={() => setRoleFilter(r)}
-            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors capitalize ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-semibold transition-colors capitalize ${
               roleFilter === r
                 ? r === "admin" ? "bg-purple-600 text-white" : "bg-blue-600 text-white"
                 : "text-gray-500 hover:bg-gray-100"
