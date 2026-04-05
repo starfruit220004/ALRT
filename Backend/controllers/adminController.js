@@ -1,6 +1,5 @@
 const pool = require('../config/db');
 
-// FIX: added try/catch — unhandled DB errors would crash the server
 exports.getUsers = async (req, res) => {
   try {
     const users = await pool.query("SELECT id, name, email, role FROM users ORDER BY id");
@@ -11,7 +10,7 @@ exports.getUsers = async (req, res) => {
   }
 };
 
-// FIX: added try/catch and a check that the user actually existed before deleting
+// Check that the user actually existed before deleting
 exports.deleteUser = async (req, res) => {
   const { id } = req.params;
   try {

@@ -1,4 +1,3 @@
-// src/pages/Reports.jsx
 import React, { useContext, useMemo } from "react";
 import { DoorContext } from "./DoorContext";
 import {
@@ -6,13 +5,12 @@ import {
   LineChart, Line, CartesianGrid, PieChart, Pie, Cell, Legend,
 } from "recharts";
 
-const DAY_LABELS   = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const COLORS = {
-  open:  "#f97316",
-  alarm: "#ef4444",
-  closed:"#22c55e",
+  open:   "#22c55e", // green-500 — safe/open
+  alarm:  "#ef4444", // red-500    — danger/alarm
+  closed: "#94a3b8", // slate-400  — neutral/closed
 };
 
 function CustomTooltip({ active, payload, label }) {
@@ -34,14 +32,19 @@ function CustomTooltip({ active, payload, label }) {
 }
 
 const Reports = () => {
-  // ✅ Combine both arrays so all charts work across all log types
   const { activityLogs = [], smsLogs = [] } = useContext(DoorContext);
   const logs = useMemo(() => [...activityLogs, ...smsLogs], [activityLogs, smsLogs]);
+
+  // Helper to parse date safely across all memo blocks
+  const getSafeDate = (log) => new Date(log.createdAt || log.created_at);
 
   const byHour = useMemo(() => {
     const counts = Array.from({ length: 24 }, (_, h) => ({ hour: `${h}:00`, Open: 0, Alarm: 0 }));
     logs.forEach(l => {
-      const h = new Date(l.created_at).getHours();
+      const dObj = getSafeDate(l);
+      if (isNaN(dObj.getTime())) return; // Skip invalid dates
+      
+      const h = dObj.getHours();
       if (l.status === "Opened" || l.status === "OPEN") counts[h].Open++;
       else if (l.status === "Alarm") counts[h].Alarm++;
     });
@@ -51,7 +54,10 @@ const Reports = () => {
   const byDay = useMemo(() => {
     const counts = DAY_LABELS.map(d => ({ day: d, Open: 0, Alarm: 0 }));
     logs.forEach(l => {
-      const d = new Date(l.created_at).getDay();
+      const dObj = getSafeDate(l);
+      if (isNaN(dObj.getTime())) return;
+      
+      const d = dObj.getDay();
       if (l.status === "Opened" || l.status === "OPEN") counts[d].Open++;
       else if (l.status === "Alarm") counts[d].Alarm++;
     });
@@ -61,7 +67,10 @@ const Reports = () => {
   const byDate = useMemo(() => {
     const map = {};
     logs.forEach(l => {
-      const key = new Date(l.created_at).toISOString().slice(0, 10);
+      const dObj = getSafeDate(l);
+      if (isNaN(dObj.getTime())) return;
+
+      const key = dObj.toISOString().slice(0, 10);
       if (!map[key]) map[key] = { date: key, Open: 0, Alarm: 0 };
       if (l.status === "Opened" || l.status === "OPEN") map[key].Open++;
       else if (l.status === "Alarm") map[key].Alarm++;
@@ -80,23 +89,31 @@ const Reports = () => {
       else closed++;
     });
     return [
-      { name: "Door Opened", value: open,   color: COLORS.open  },
-      { name: "Alarm",       value: alarm,  color: COLORS.alarm },
-      { name: "Other",       value: closed, color: COLORS.closed },
+      { name: "Door Opened", value: open,   color: COLORS.open   },
+      { name: "Alarm",       value: alarm,  color: COLORS.alarm  },
+      { name: "Door Closed", value: closed, color: COLORS.closed },
     ].filter(d => d.value > 0);
   }, [logs]);
 
   const totalOpen  = logs.filter(l => l.status === "Opened" || l.status === "OPEN").length;
   const totalAlarm = logs.filter(l => l.status === "Alarm").length;
-  const totalDays  = useMemo(() => {
-    const dates = new Set(logs.map(l => new Date(l.created_at).toISOString().slice(0, 10)));
+  
+  const totalDays = useMemo(() => {
+    const dates = new Set();
+    logs.forEach(l => {
+        const dObj = getSafeDate(l);
+        if (!isNaN(dObj.getTime())) {
+            dates.add(dObj.toISOString().slice(0, 10));
+        }
+    });
     return dates.size;
   }, [logs]);
+
   const avgPerDay = totalDays > 0 ? (logs.length / totalDays).toFixed(1) : "0";
 
   if (logs.length === 0) {
     return (
-      <div className="p-4 md:p-6 space-y-4">
+      <div className="p-4 md:p-6 space-y-4 pt-20 md:pt-8">
         <div>
           <h2 className="text-xl md:text-2xl font-bold text-gray-800">Reports</h2>
           <p className="text-sm text-gray-500 mt-0.5">Visual breakdown of door activity</p>
@@ -111,24 +128,29 @@ const Reports = () => {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-5 md:space-y-6">
+    <div className="p-4 md:p-6 space-y-5 md:space-y-6 pt-20 md:pt-8 max-w-7xl mx-auto">
       <div>
         <h2 className="text-xl md:text-2xl font-bold text-gray-800">Reports</h2>
         <p className="text-sm text-gray-500 mt-0.5">Visual breakdown of door activity</p>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: "Total Events", value: logs.length, color: "text-gray-800",   bg: "bg-gray-50",   border: "border-gray-200" },
-          { label: "Door Opened",  value: totalOpen,   color: "text-orange-500", bg: "bg-orange-50", border: "border-orange-200" },
-          { label: "Alarms",       value: totalAlarm,  color: "text-red-500",    bg: "bg-red-50",    border: "border-red-200" },
-          { label: "Avg / Day",    value: avgPerDay,   color: "text-blue-600",   bg: "bg-blue-50",   border: "border-blue-200" },
-        ].map(({ label, value, color, bg, border }) => (
-          <div key={label} className={`rounded-xl border ${border} ${bg} p-4 flex flex-col gap-1`}>
-            <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">{label}</p>
-            <p className={`text-2xl md:text-3xl font-bold ${color}`}>{value}</p>
-          </div>
-        ))}
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 flex flex-col gap-1">
+          <p className="text-xs text-slate-400 font-medium uppercase tracking-wide">Total Events</p>
+          <p className="text-2xl md:text-3xl font-bold text-slate-700">{logs.length}</p>
+        </div>
+        <div className="rounded-xl border border-green-300 bg-green-50 p-4 flex flex-col gap-1">
+          <p className="text-xs text-green-500 font-medium uppercase tracking-wide">Door Opened</p>
+          <p className="text-2xl md:text-3xl font-bold text-green-600">{totalOpen}</p>
+        </div>
+        <div className="rounded-xl border border-red-300 bg-red-50 p-4 flex flex-col gap-1">
+          <p className="text-xs text-red-400 font-medium uppercase tracking-wide">Alarms</p>
+          <p className="text-2xl md:text-3xl font-bold text-red-600">{totalAlarm}</p>
+        </div>
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 flex flex-col gap-1">
+          <p className="text-xs text-blue-400 font-medium uppercase tracking-wide">Avg / Day</p>
+          <p className="text-2xl md:text-3xl font-bold text-blue-600">{avgPerDay}</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5">
@@ -141,8 +163,8 @@ const Reports = () => {
               <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
               <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} allowDecimals={false} />
               <Tooltip content={<CustomTooltip />} />
-              <Line type="monotone" dataKey="Open"  stroke={COLORS.open}  strokeWidth={2} dot={false} name="Opened" />
-              <Line type="monotone" dataKey="Alarm" stroke={COLORS.alarm} strokeWidth={2} dot={false} name="Alarm" />
+              <Line type="monotone" dataKey="Open"  stroke={COLORS.open}  strokeWidth={2} dot={{ r: 3, fill: COLORS.open }}  activeDot={{ r: 5 }} name="Opened" />
+              <Line type="monotone" dataKey="Alarm" stroke={COLORS.alarm} strokeWidth={2} dot={{ r: 3, fill: COLORS.alarm }} activeDot={{ r: 5 }} name="Alarm" />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -177,7 +199,7 @@ const Reports = () => {
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={byDay} margin={{ top: 4, right: 8, bottom: 0, left: -20 }} barSize={14} barGap={3}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-              <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
+              <XAxis dataKey="day"  tick={{ fontSize: 11, fill: "#94a3b8" }} tickLine={false} axisLine={false} />
               <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} allowDecimals={false} />
               <Tooltip content={<CustomTooltip />} />
               <Bar dataKey="Open"  fill={COLORS.open}  radius={[4,4,0,0]} name="Opened" />

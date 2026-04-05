@@ -1,44 +1,34 @@
-const pool = require('../config/db');
-const mqtt = require('mqtt');
-
-// ── Use same MQTT client as server.js ──────────────────────
-// Import the shared mqtt client
-const mqttClient = mqtt.connect(process.env.MQTT_BROKER || 'mqtt://broker.hivemq.com:1883', {
-  clientId: `SmartAlert_Settings_${Math.random().toString(16).slice(2, 8)}`,
-  clean: true,
-});
-
-mqttClient.on('connect', () => {
-  console.log('✅ Settings MQTT client connected');
-});
-
-mqttClient.on('error', (err) => {
-  console.error('❌ Settings MQTT error:', err.message);
-});
+// controllers/settingsController.js
+const prisma     = require("../config/prisma");
+const mqttClient = require("../config/mqtt");
 
 // ─────────────────────────────────────────
 // GET SETTINGS
 // ─────────────────────────────────────────
 exports.getSettings = async (req, res) => {
-  const userId = req.user.id;   // ← use logged in user
+  const userId = req.user.id;
   try {
-    const result = await pool.query(
-      'SELECT * FROM settings WHERE user_id = $1',
-      [userId]
-    );
+    let settings = await prisma.settings.findUnique({
+      where: { userId },
+    });
 
-    if (!result.rows[0]) {
-      const created = await pool.query(
-        'INSERT INTO settings (alarm_enabled, sms_enabled, user_id) VALUES (false, false, $1) RETURNING *',
-        [userId]
-      );
-      return res.json(created.rows[0]);
+    if (!settings) {
+      // Create default settings if none exist
+      settings = await prisma.settings.create({
+        data: {
+          alarmEnabled:  false,
+          smsEnabled:    false,
+          scheduleStart: "08:00",
+          scheduleEnd:   "17:00",
+          userId,
+        },
+      });
     }
 
-    res.json(result.rows[0]);
+    res.json(settings);
   } catch (err) {
-    console.error('Error fetching settings:', err.message);
-    res.status(500).json({ message: 'Error fetching settings' });
+    console.error("Error fetching settings:", err.message);
+    res.status(500).json({ message: "Error fetching settings" });
   }
 };
 
@@ -46,27 +36,36 @@ exports.getSettings = async (req, res) => {
 // TOGGLE ALARM
 // ─────────────────────────────────────────
 exports.toggleAlarm = async (req, res) => {
-  const { value }  = req.body;
-  const userId     = req.user.id;   // ← use logged in user
+  const { value, scheduleStart, scheduleEnd } = req.body;
+  const userId = req.user.id;
+
   try {
-    await pool.query(
-      'UPDATE settings SET alarm_enabled = $1 WHERE user_id = $2',
-      [value, userId]
-    );
-
-    console.log(`🔔 Alarm ${value ? 'ENABLED' : 'DISABLED'} for user_${userId}`);
-
-    // ── Notify ESP32 via MQTT ──────────────────────────────
-    const topic = `Smart_Alert/user_${userId}/settings`;
-    mqttClient.publish(topic, 'UPDATE', { retain: false }, (err) => {
-      if (err) console.error('❌ MQTT publish error:', err.message);
-      else     console.log(`📡 Notified ESP32: ${topic} → UPDATE`);
+    const updated = await prisma.settings.update({
+      where: { userId },
+      data: {
+        alarmEnabled:  value,
+        scheduleStart: scheduleStart || "08:00",
+        scheduleEnd:   scheduleEnd   || "17:00",
+      },
     });
 
-    res.json({ message: 'Alarm updated', alarm_enabled: value });
+    console.log(`Alarm ${value ? "ENABLED" : "DISABLED"} for user_${userId}`);
+
+    const topic = `Smart_Alert/user_${userId}/settings`;
+    mqttClient.publish(topic, "UPDATE", { retain: false }, (err) => {
+      if (err) console.error("MQTT publish error:", err.message);
+      else     console.log(`Notified ESP32: ${topic} → UPDATE`);
+    });
+
+    res.json({
+      message:       "Alarm updated",
+      alarm_enabled: updated.alarmEnabled,
+      schedule_start: updated.scheduleStart,
+      schedule_end:   updated.scheduleEnd,
+    });
   } catch (err) {
-    console.error('Error updating alarm:', err.message);
-    res.status(500).json({ message: 'Error updating alarm' });
+    console.error("Error updating alarm:", err.message);
+    res.status(500).json({ message: "Error updating alarm" });
   }
 };
 
@@ -75,25 +74,28 @@ exports.toggleAlarm = async (req, res) => {
 // ─────────────────────────────────────────
 exports.toggleSMS = async (req, res) => {
   const { value } = req.body;
-  const userId    = req.user.id;   // ← use logged in user
+  const userId    = req.user.id;
+
   try {
-    await pool.query(
-      'UPDATE settings SET sms_enabled = $1 WHERE user_id = $2',
-      [value, userId]
-    );
-
-    console.log(`📱 SMS ${value ? 'ENABLED' : 'DISABLED'} for user_${userId}`);
-
-    // ── Notify ESP32 via MQTT ──────────────────────────────
-    const topic = `Smart_Alert/user_${userId}/settings`;
-    mqttClient.publish(topic, 'UPDATE', { retain: false }, (err) => {
-      if (err) console.error('❌ MQTT publish error:', err.message);
-      else     console.log(`📡 Notified ESP32: ${topic} → UPDATE`);
+    const updated = await prisma.settings.update({
+      where: { userId },
+      data:  { smsEnabled: value },
     });
 
-    res.json({ message: 'SMS updated', sms_enabled: value });
+    console.log(`SMS ${value ? "ENABLED" : "DISABLED"} for user_${userId}`);
+
+    const topic = `Smart_Alert/user_${userId}/settings`;
+    mqttClient.publish(topic, "UPDATE", { retain: false }, (err) => {
+      if (err) console.error("MQTT publish error:", err.message);
+      else     console.log(`Notified ESP32: ${topic} → UPDATE`);
+    });
+
+    res.json({
+      message:     "SMS updated",
+      sms_enabled: updated.smsEnabled,
+    });
   } catch (err) {
-    console.error('Error updating SMS:', err.message);
-    res.status(500).json({ message: 'Error updating SMS' });
+    console.error("Error updating SMS:", err.message);
+    res.status(500).json({ message: "Error updating SMS" });
   }
 };

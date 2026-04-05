@@ -1,6 +1,6 @@
 const pool = require('../config/db');
 
-// ── Activity Logs (door_logs) ──────────────────────────────
+// Activity Logs 
 exports.getLogs = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -15,7 +15,7 @@ exports.getLogs = async (req, res) => {
   }
 };
 
-// ── SMS Logs (sms_logs) ────────────────────────────────────
+// SMS Logs
 exports.getSmsLogs = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -30,7 +30,33 @@ exports.getSmsLogs = async (req, res) => {
   }
 };
 
-// ── Delete single Activity Log ─────────────────────────────
+// ADD THIS FUNCTION: Save SMS Log from ESP32
+exports.saveSmsLog = async (req, res) => {
+  try {
+    const { user_id, status, message } = req.body;
+
+    // 1. Insert into database
+    const result = await pool.query(
+      'INSERT INTO sms_logs (user_id, status, message) VALUES ($1, $2, $3) RETURNING *',
+      [user_id, status, message]
+    );
+
+    const newLog = result.rows[0];
+
+    // 2. Emit via Socket.io so React updates the table immediately
+    const io = req.app.get('socketio');
+    if (io) {
+      io.to(`user_${user_id}`).emit('sms_update', newLog);
+    }
+
+    res.json({ message: 'SMS log saved and broadcasted', log: newLog });
+  } catch (err) {
+    console.error('Error saving SMS log:', err.message);
+    res.status(500).json({ error: 'Server error saving SMS log' });
+  }
+};
+
+// Delete single Activity Log
 exports.deleteLog = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -46,7 +72,7 @@ exports.deleteLog = async (req, res) => {
   }
 };
 
-// ── Delete single SMS Log ──────────────────────────────────
+//  Delete single SMS Log
 exports.deleteSmsLog = async (req, res) => {
   try {
     const userId = req.user.id;

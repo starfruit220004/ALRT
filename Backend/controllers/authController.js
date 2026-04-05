@@ -1,298 +1,459 @@
-const pool = require('../config/db');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const sendEmail = require('../utils/sendEmail');
+// controllers/authController.js
+const prisma  = require("../config/prisma");
+const bcrypt  = require("bcrypt");
+const jwt     = require("jsonwebtoken");
+const crypto  = require("crypto");
+const sendEmail = require("../utils/sendEmail");
+const { sendVerificationEmail } = sendEmail;
 
-const JWT_SECRET = process.env.JWT_SECRET || 'secret';
+const JWT_SECRET = process.env.JWT_SECRET || "secret";
 
-// helper: return null for empty/null/undefined, else the value
 function val(v) {
-  return v != null && v !== '' ? v : null;
+  return v != null && v !== "" ? v : null;
 }
 
 // ─────────────────────────────────────────
 // 1. SIGNUP
 // ─────────────────────────────────────────
 exports.signup = async (req, res) => {
-  const { name, email, password, phone, username, firstName, lastName, middleName, address } = req.body;
+  const {
+    name, email, password, phone,
+    username, firstName, lastName, middleName, address,
+  } = req.body;
 
-  if (!firstName?.trim()) return res.status(400).json({ message: 'First name is required' });
-  if (!lastName?.trim())  return res.status(400).json({ message: 'Last name is required' });
-  if (!username?.trim())  return res.status(400).json({ message: 'Username is required' });
-  if (!email?.trim())     return res.status(400).json({ message: 'Email is required' });
-  if (!password?.trim())  return res.status(400).json({ message: 'Password is required' });
-  if (!phone?.trim())     return res.status(400).json({ message: 'Phone number is required' });
-  if (!address?.trim())   return res.status(400).json({ message: 'Address is required' });
+  if (!firstName?.trim()) return res.status(400).json({ message: "First name is required" });
+  if (!lastName?.trim())  return res.status(400).json({ message: "Last name is required" });
+  if (!username?.trim())  return res.status(400).json({ message: "Username is required" });
+  if (!email?.trim())     return res.status(400).json({ message: "Email is required" });
+  if (!password?.trim())  return res.status(400).json({ message: "Password is required" });
+  if (!phone?.trim())     return res.status(400).json({ message: "Phone number is required" });
+  if (!address?.trim())   return res.status(400).json({ message: "Address is required" });
 
   try {
-    const userCheck = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-    if (userCheck.rows.length > 0)
-      return res.status(400).json({ message: 'Email already in use' });
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return res.status(400).json({ message: "Email already in use" });
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const verifyToken    = crypto.randomBytes(32).toString("hex");
 
-    const result = await pool.query(
-      'INSERT INTO users (name, email, password, role, phone, username, first_name, last_name, middle_name, address) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id',
-      [name, email, hashedPassword, 'user',
-       val(phone), val(username), val(firstName), val(lastName), val(middleName), val(address)]
-    );
+    const newUser = await prisma.user.create({
+      data: {
+        name:        val(name),
+        email,
+        password:    hashedPassword,
+        role:        "user",            // public signup always creates a regular user
+        phone:       val(phone),
+        username:    val(username),
+        firstName:   val(firstName),
+        lastName:    val(lastName),
+        middleName:  val(middleName),
+        address:     val(address),
+        mqttTopic:   "placeholder",
+        isVerified:  false,
+        verifyToken,
+      },
+    });
 
-    const newUserId = result.rows[0].id;
+    const mqttTopic = `Smart_Alert/user_${newUser.id}/door`;
+    await prisma.user.update({
+      where: { id: newUser.id },
+      data:  { mqttTopic },
+    });
 
-    const mqttTopic = `Smart_Alert/user_${newUserId}/door`;
-    await pool.query('UPDATE users SET mqtt_topic = $1 WHERE id = $2', [mqttTopic, newUserId]);
+    await prisma.settings.create({
+      data: {
+        alarmEnabled:  false,
+        smsEnabled:    false,
+        scheduleStart: "08:00",
+        scheduleEnd:   "17:00",
+        userId:        newUser.id,
+      },
+    });
 
-    await pool.query(
-      'INSERT INTO settings (alarm_enabled, sms_enabled, user_id) VALUES ($1, $2, $3)',
-      [false, false, newUserId]
-    );
+    const displayName = val(firstName) || val(name) || email;
+    await sendVerificationEmail(email, verifyToken, displayName);
 
-    res.status(201).json({ message: 'Account created successfully!' });
+    res.status(201).json({
+      message: "Account created! Please check your email to verify your account.",
+    });
   } catch (err) {
-    console.error('Signup Error:', err);
-    res.status(500).json({ message: 'Server error during signup' });
+    console.error("Signup Error:", err);
+    res.status(500).json({ message: "Server error during signup" });
   }
 };
 
 // ─────────────────────────────────────────
-// 2. LOGIN
+// 2. VERIFY EMAIL
+// ─────────────────────────────────────────
+exports.verifyEmail = async (req, res) => {
+  const { token } = req.query;
+
+  if (!token) {
+    return res.status(400).json({ message: "Verification token is missing" });
+  }
+
+  try {
+    const user = await prisma.user.findFirst({ where: { verifyToken: token } });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired verification link" });
+    }
+
+    if (user.isVerified) {
+      return res.status(200).json({ message: "Email already verified. You can log in." });
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data:  { isVerified: true, verifyToken: null },
+    });
+
+    res.status(200).json({ message: "Email verified successfully! You can now log in." });
+  } catch (err) {
+    console.error("Verify Email Error:", err);
+    res.status(500).json({ message: "Server error during verification" });
+  }
+};
+
+// ─────────────────────────────────────────
+// 3. RESEND VERIFICATION EMAIL
+// ─────────────────────────────────────────
+exports.resendVerification = async (req, res) => {
+  const { email } = req.body;
+
+  if (!email?.trim()) {
+    return res.status(400).json({ message: "Email is required" });
+  }
+
+  try {
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user) {
+      return res.status(404).json({ message: "No account found with that email" });
+    }
+
+    if (user.isVerified) {
+      return res.status(400).json({ message: "This account is already verified" });
+    }
+
+    const verifyToken = crypto.randomBytes(32).toString("hex");
+    await prisma.user.update({
+      where: { id: user.id },
+      data:  { verifyToken },
+    });
+
+    const displayName = val(user.firstName) || val(user.name) || email;
+    await sendVerificationEmail(email, verifyToken, displayName);
+
+    res.status(200).json({ message: "Verification email resent. Please check your inbox." });
+  } catch (err) {
+    console.error("Resend Verification Error:", err);
+    res.status(500).json({ message: "Server error resending verification" });
+  }
+};
+
+// ─────────────────────────────────────────
+// 4. LOGIN
 // ─────────────────────────────────────────
 exports.login = async (req, res) => {
   const { email, password } = req.body;
   try {
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-    if (result.rows.length === 0)
-      return res.status(404).json({ message: 'User not found' });
+    const user = await prisma.user.findUnique({ where: { email } });
 
-    const user = result.rows[0];
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
-    // ── Block deactivated accounts ─────────────────────────────────────────
-    if (!user.is_active) {
+    if (!user.isActive) {
       return res.status(403).json({
-        message: 'Your account has been deactivated. Please contact an administrator.'
+        message: "Your account has been deactivated. Please contact an administrator.",
       });
     }
-    // ──────────────────────────────────────────────────────────────────────
+
+    if (!user.isVerified) {
+      return res.status(403).json({
+        message: "Please verify your email before logging in.",
+        unverified: true,
+      });
+    }
 
     const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid)
-      return res.status(401).json({ message: 'Invalid credentials' });
+    if (!isValid) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
 
-    if (!user.mqtt_topic) {
-      const topic = `Smart_Alert/user_${user.id}/door`;
-      await pool.query('UPDATE users SET mqtt_topic = $1 WHERE id = $2', [topic, user.id]);
-      user.mqtt_topic = topic;
+    let mqttTopic = user.mqttTopic;
+    if (!mqttTopic) {
+      mqttTopic = `Smart_Alert/user_${user.id}/door`;
+      await prisma.user.update({ where: { id: user.id }, data: { mqttTopic } });
     }
 
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       JWT_SECRET,
-      { expiresIn: '1d' }
+      { expiresIn: "1d" }
     );
 
     res.status(200).json({
-      message:    'Login successful',
+      message:    "Login successful",
       token,
       id:         user.id,
       role:       user.role,
       name:       user.name,
       email:      user.email,
       avatar:     val(user.avatar),
-      mqttTopic:  user.mqtt_topic,
+      mqttTopic,
       phone:      val(user.phone),
       username:   val(user.username),
-      firstName:  val(user.first_name),
-      lastName:   val(user.last_name),
-      middleName: val(user.middle_name),
+      firstName:  val(user.firstName),
+      lastName:   val(user.lastName),
+      middleName: val(user.middleName),
       address:    val(user.address),
     });
   } catch (err) {
-    console.error('Login Error:', err);
-    res.status(500).json({ message: 'Server error during login' });
+    console.error("Login Error:", err);
+    res.status(500).json({ message: "Server error during login" });
   }
 };
 
 // ─────────────────────────────────────────
-// 3. GOOGLE LOGIN
+// 5. GOOGLE LOGIN
 // ─────────────────────────────────────────
 exports.googleAuth = async (req, res) => {
   const { email, name, avatar } = req.body;
   try {
-    let userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    let user = await prisma.user.findUnique({ where: { email } });
 
-    if (userResult.rows.length === 0) {
-      // Brand-new Google user — create account
-      const inserted = await pool.query(
-        'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id',
-        [name, email, 'google_sso_user', 'user']
-      );
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          name,
+          email,
+          password:    "google_sso_user",
+          role:        "user",
+          mqttTopic:   "placeholder",
+          isVerified:  true,
+          verifyToken: null,
+        },
+      });
 
-      const newUserId = inserted.rows[0].id;
-      const mqttTopic = `Smart_Alert/user_${newUserId}/door`;
-      await pool.query('UPDATE users SET mqtt_topic = $1 WHERE id = $2', [mqttTopic, newUserId]);
+      const mqttTopic = `Smart_Alert/user_${user.id}/door`;
+      user = await prisma.user.update({ where: { id: user.id }, data: { mqttTopic } });
 
-      await pool.query(
-        'INSERT INTO settings (alarm_enabled, sms_enabled, user_id) VALUES ($1, $2, $3)',
-        [false, false, newUserId]
-      );
-
-      userResult = await pool.query('SELECT * FROM users WHERE id = $1', [newUserId]);
-    }
-
-    const user = userResult.rows[0];
-
-    // ── Block deactivated accounts ─────────────────────────────────────────
-    // Checked after creation so a brand-new Google account is never blocked,
-    // but an existing deactivated Google account cannot log back in.
-    if (!user.is_active) {
-      return res.status(403).json({
-        message: 'Your account has been deactivated. Please contact an administrator.'
+      await prisma.settings.create({
+        data: {
+          alarmEnabled:  false,
+          smsEnabled:    false,
+          scheduleStart: "08:00",
+          scheduleEnd:   "17:00",
+          userId:        user.id,
+        },
       });
     }
-    // ──────────────────────────────────────────────────────────────────────
+
+    if (!user.isActive) {
+      return res.status(403).json({
+        message: "Your account has been deactivated. Please contact an administrator.",
+      });
+    }
 
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       JWT_SECRET,
-      { expiresIn: '1d' }
+      { expiresIn: "1d" }
     );
 
     res.status(200).json({
-      message:    'Google login successful',
+      message:    "Google login successful",
       token,
       id:         user.id,
       role:       user.role,
       name:       user.name,
       email:      user.email,
       avatar:     val(avatar) || val(user.avatar),
-      mqttTopic:  user.mqtt_topic,
+      mqttTopic:  user.mqttTopic,
       phone:      val(user.phone),
       username:   val(user.username),
-      firstName:  val(user.first_name),
-      lastName:   val(user.last_name),
-      middleName: val(user.middle_name),
+      firstName:  val(user.firstName),
+      lastName:   val(user.lastName),
+      middleName: val(user.middleName),
       address:    val(user.address),
     });
   } catch (err) {
-    console.error('Google Auth Error:', err);
-    res.status(500).json({ message: 'Server error during Google Authentication' });
+    console.error("Google Auth Error:", err);
+    res.status(500).json({ message: "Server error during Google Authentication" });
   }
 };
 
 // ─────────────────────────────────────────
-// 4. UPDATE PROFILE
+// 6. UPDATE PROFILE
 // ─────────────────────────────────────────
 exports.updateProfile = async (req, res) => {
-  const { name, avatar, phone, username, firstName, lastName, middleName, address, email } = req.body;
+  const {
+    name, avatar, phone, username,
+    firstName, lastName, middleName, address, email,
+  } = req.body;
   const userId = req.user.id;
 
   try {
-    const result = await pool.query(
-      `UPDATE users
-       SET name        = $1,
-           avatar      = $2,
-           phone       = $3,
-           username    = $4,
-           first_name  = $5,
-           last_name   = $6,
-           middle_name = $7,
-           address     = $8,
-           email       = $9
-       WHERE id = $10
-       RETURNING id, name, email, role, avatar, mqtt_topic,
-                 phone, username, first_name, last_name, middle_name, address`,
-      [
-        val(name),
-        val(avatar),
-        val(phone),
-        val(username),
-        val(firstName),
-        val(lastName),
-        val(middleName),
-        val(address),
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        name:       val(name),
+        avatar:     val(avatar),
+        phone:      val(phone),
+        username:   val(username),
+        firstName:  val(firstName),
+        lastName:   val(lastName),
+        middleName: val(middleName),
+        address:    val(address),
         email,
-        userId,
-      ]
-    );
+      },
+    });
 
-    if (result.rows.length === 0)
-      return res.status(404).json({ message: 'User not found' });
-
-    const u = result.rows[0];
     res.status(200).json({
-      message: 'Profile updated successfully',
+      message: "Profile updated successfully",
       user: {
-        id:         u.id,
-        name:       u.name,
-        email:      u.email,
-        role:       u.role,
-        avatar:     val(u.avatar),
-        mqttTopic:  u.mqtt_topic,
-        phone:      val(u.phone),
-        username:   val(u.username),
-        firstName:  val(u.first_name),
-        lastName:   val(u.last_name),
-        middleName: val(u.middle_name),
-        address:    val(u.address),
+        id:         updated.id,
+        name:       updated.name,
+        email:      updated.email,
+        role:       updated.role,
+        avatar:     val(updated.avatar),
+        mqttTopic:  updated.mqttTopic,
+        phone:      val(updated.phone),
+        username:   val(updated.username),
+        firstName:  val(updated.firstName),
+        lastName:   val(updated.lastName),
+        middleName: val(updated.middleName),
+        address:    val(updated.address),
       },
     });
   } catch (err) {
-    console.error('Update Profile Error:', err);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Update Profile Error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 // ─────────────────────────────────────────
-// 5. FORGOT PASSWORD
+// 7. FORGOT PASSWORD
 // ─────────────────────────────────────────
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
   try {
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-    if (result.rows.length === 0)
-      return res.status(404).json({ message: 'User not found' });
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return res.status(404).json({ message: "No account found with that email address." });
+    }
 
-    const user = result.rows[0];
-    const resetToken = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '10m' });
-    const resetUrl   = `http://localhost:5173/reset-password?token=${resetToken}`;
-    const message    = `You requested a password reset. Please click the link below to reset your password:\n\n${resetUrl}\n\nThis link expires in 10 minutes.\n\nIf you did not request this, please ignore this email.`;
+    const resetToken  = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: "10m" });
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    const resetUrl    = `${frontendUrl}/reset-password?token=${resetToken}`;
+    const message     = `You requested a password reset.\n\nClick the link below:\n\n${resetUrl}\n\nExpires in 10 minutes. Ignore if you did not request this.`;
 
-    await sendEmail({ email: user.email, subject: 'Password Reset Request', message });
-    res.status(200).json({ message: 'Reset link sent to email' });
+    await sendEmail({ email: user.email, subject: "Password Reset Request", message });
+    res.status(200).json({ message: "Reset link sent to email" });
   } catch (err) {
-    console.error('Forgot Password Error:', err);
-    res.status(500).json({ message: 'Error sending reset email' });
+    console.error("Forgot Password Error:", err);
+    res.status(500).json({ message: "Error sending reset email" });
   }
 };
 
 // ─────────────────────────────────────────
-// 6. RESET PASSWORD
+// 8. RESET PASSWORD
 // ─────────────────────────────────────────
 exports.resetPassword = async (req, res) => {
   const { token, newPassword } = req.body;
   try {
     const decoded        = jwt.verify(token, JWT_SECRET);
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, decoded.id]);
-    res.status(200).json({ message: 'Password updated successfully' });
+
+    await prisma.user.update({
+      where: { id: decoded.id },
+      data:  { password: hashedPassword },
+    });
+
+    res.status(200).json({ message: "Password updated successfully" });
   } catch (err) {
-    console.error('Reset Password Error:', err);
-    res.status(400).json({ message: 'Invalid or expired token' });
+    console.error("Reset Password Error:", err);
+    res.status(400).json({ message: "Invalid or expired token" });
   }
 };
 
 // ─────────────────────────────────────────
-// 7. GET PHONE NUMBER (for ESP32)
+// 9. GET PHONE NUMBER (for ESP32)
 // ─────────────────────────────────────────
 exports.getPhoneNumber = async (req, res) => {
-  const { userId } = req.params;
+  const userId = parseInt(req.params.userId, 10);
   try {
-    const result = await pool.query('SELECT phone FROM users WHERE id = $1', [userId]);
-    if (result.rows.length === 0)
-      return res.status(404).json({ message: 'User not found' });
-    res.status(200).json({ phone: val(result.rows[0].phone) });
+    const user = await prisma.user.findUnique({
+      where:  { id: userId },
+      select: { phone: true },
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({ phone: val(user.phone) });
   } catch (err) {
-    console.error('Get Phone Error:', err);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Get Phone Error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ─────────────────────────────────────────
+// 10. CREATE ADMIN (one-time, protected)
+//     POST /api/auth/create-admin
+//     Requires: ADMIN_SECRET header matching process.env.ADMIN_SECRET
+// ─────────────────────────────────────────
+exports.createAdmin = async (req, res) => {
+  // Guard: must supply the server-side secret
+  const secret = req.headers["x-admin-secret"];
+  if (!secret || secret !== process.env.ADMIN_SECRET) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  try {
+    // Guard: only one admin allowed at all times
+    const existingAdmin = await prisma.user.findFirst({ where: { role: "admin" } });
+    if (existingAdmin) {
+      return res.status(409).json({ message: "An admin account already exists." });
+    }
+
+    const { email, password, firstName, lastName, phone, address, username } = req.body;
+
+    if (!email?.trim() || !password?.trim()) {
+      return res.status(400).json({ message: "Email and password are required." });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const admin = await prisma.user.create({
+      data: {
+        name:       `${val(firstName) || ""} ${val(lastName) || ""}`.trim() || "Admin",
+        email,
+        password:   hashedPassword,
+        role:       "admin",
+        isVerified: true,       // admin doesn't need email verification
+        isActive:   true,
+        mqttTopic:  null,
+        phone:      val(phone),
+        username:   val(username),
+        firstName:  val(firstName),
+        lastName:   val(lastName),
+        address:    val(address),
+      },
+    });
+
+    res.status(201).json({
+      message: "Admin account created successfully.",
+      id:      admin.id,
+      email:   admin.email,
+    });
+  } catch (err) {
+    console.error("Create Admin Error:", err);
+    res.status(500).json({ message: "Server error creating admin" });
   }
 };

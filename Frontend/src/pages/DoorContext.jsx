@@ -3,98 +3,106 @@ import socket from "../socket";
 
 export const DoorContext = createContext();
 
+const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 export const DoorProvider = ({ children }) => {
-  const [doorStatus,   setDoorStatus]   = useState(null);
+  const [doorStatus, setDoorStatus] = useState(null);
   const [activityLogs, setActivityLogs] = useState([]);
-  const [smsLogs,      setSmsLogs]      = useState([]);
-  const [alarmEnabled, setAlarmEnabled] = useState(false);
-  const [emailEnabled, setEmailEnabled] = useState(false);
+  const [smsLogs, setSmsLogs] = useState([]);
+  const [alarm_enabled, setAlarmEnabled] = useState(false);
+  const [sms_enabled, setSmsEnabled] = useState(false);
+  const [scheduleStart, setScheduleStart] = useState("08:00");
+  const [scheduleEnd, setScheduleEnd] = useState("17:00");
 
   useEffect(() => {
-    const token  = localStorage.getItem("token");
+    const token = localStorage.getItem("token");
     const userId = localStorage.getItem("userId");
 
     if (!token) return;
-
     if (userId) socket.emit("join_user_room", userId);
 
-    const fetchActivityLogs = async () => {
+    const fetchAllData = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/dashboard/logs", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!Array.isArray(data)) return;
-        setActivityLogs(data);
-        if (data.length > 0) setDoorStatus(data[0].status);
-      } catch (err) {
-        console.error("Error fetching activity logs:", err);
-      }
-    };
+        const headers = { Authorization: `Bearer ${token}` };
 
-    const fetchSmsLogs = async () => {
-      try {
-        const res = await fetch("http://localhost:5000/api/dashboard/sms-logs", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!Array.isArray(data)) return;
-        setSmsLogs(data);
-      } catch (err) {
-        console.error("Error fetching SMS logs:", err);
-      }
-    };
+        // Run fetches in parallel for better performance
+        const [activityRes, smsRes, settingsRes] = await Promise.all([
+          fetch(`${API}/api/dashboard/logs`, { headers }),
+          fetch(`${API}/api/dashboard/sms-logs`, { headers }),
+          fetch(`${API}/api/settings`, { headers }),
+        ]);
 
-    const fetchSettings = async () => {
-      try {
-        const res = await fetch("http://localhost:5000/api/settings", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data) {
-          setAlarmEnabled(data.alarm_enabled);
-          setEmailEnabled(data.sms_enabled);
+        const activityData = await activityRes.json();
+        const smsData = await smsRes.json();
+        const settingsData = await settingsRes.json();
+
+        if (Array.isArray(activityData)) {
+          setActivityLogs(activityData);
+          if (activityData.length > 0) setDoorStatus(activityData[0].status);
+        }
+        if (Array.isArray(smsData)) setSmsLogs(smsData);
+        
+        if (settingsData) {
+          setAlarmEnabled(settingsData.alarm_enabled);
+          setSmsEnabled(settingsData.sms_enabled);
+          if (settingsData.schedule_start) setScheduleStart(settingsData.schedule_start);
+          if (settingsData.schedule_end) setScheduleEnd(settingsData.schedule_end);
         }
       } catch (err) {
-        console.error("Error fetching settings:", err);
+        console.error("Error fetching context data:", err);
       }
     };
 
-    fetchActivityLogs();
-    fetchSmsLogs();
-    fetchSettings();
+    fetchAllData();
   }, []);
 
   useEffect(() => {
     const handleDoorUpdate = (data) => {
+      // 1. Immediately update the main status
       setDoorStatus(data.status);
-      setActivityLogs((prev) => [data, ...prev]);
+      
+      // 2. Add to logs if it doesn't exist
+      setActivityLogs((prev) => {
+        const exists = prev.some((log) => log.id === data.id);
+        if (exists) return prev;
+        return [data, ...prev]; // New logs at the top
+      });
     };
 
     const handleSmsUpdate = (data) => {
-      setSmsLogs((prev) => [data, ...prev]);
+      setSmsLogs((prev) => {
+        const exists = prev.some((sms) => sms.id === data.id);
+        if (exists) return prev;
+        return [data, ...prev];
+      });
     };
 
     socket.on("door_update", handleDoorUpdate);
-    socket.on("sms_update",  handleSmsUpdate);
+    socket.on("sms_update", handleSmsUpdate);
 
     return () => {
       socket.off("door_update", handleDoorUpdate);
-      socket.off("sms_update",  handleSmsUpdate);
+      socket.off("sms_update", handleSmsUpdate);
     };
   }, []);
 
   return (
     <DoorContext.Provider
       value={{
-        doorStatus,   setDoorStatus,
-        activityLogs, setActivityLogs,
-        smsLogs,      setSmsLogs,
-        alarmEnabled, setAlarmEnabled,
-        emailEnabled, setEmailEnabled,
+        doorStatus,
+        setDoorStatus,
+        activityLogs,
+        setActivityLogs,
+        smsLogs,
+        setSmsLogs,
+        alarm_enabled,
+        setAlarmEnabled,
+        sms_enabled,
+        setSmsEnabled,
+        scheduleStart,
+        setScheduleStart,
+        scheduleEnd,
+        setScheduleEnd,
       }}
     >
       {children}

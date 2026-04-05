@@ -18,40 +18,63 @@ const FIELDS = [
 ];
 
 export default function HomeCms({ getHeaders, notify }) {
-  const [fields,  setFields]  = useState({});
-  const [draft,   setDraft]   = useState({});
+  const [fields, setFields] = useState({});
+  const [draft, setDraft] = useState({});
   const [loading, setLoading] = useState(false);
-  const [saving,  setSaving]  = useState(false);
-  const [dirty,   setDirty]   = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true); setDirty(false);
     try {
-      const res  = await fetch(`${BASE}/api/cms?section=hero`);
+      const res = await fetch(`${BASE}/api/cms?section=hero`);
+      if (!res.ok) throw new Error();
       const data = await res.json();
-      setFields(data); setDraft({ ...data });
-    } catch { notify("❌ Failed to load Home content"); }
-    finally  { setLoading(false); }
+      setFields(data); 
+      setDraft({ ...data });
+    } catch { 
+      notify("❌ Failed to load Home content"); 
+    } finally { 
+      setLoading(false); 
+    }
   }, [notify]);
 
   useEffect(() => { load(); }, [load]);
 
-  const handleChange  = (key, val) => { setDraft(d => ({ ...d, [key]: val })); setDirty(true); };
-  const handleDiscard = () => { setDraft({ ...fields }); setDirty(false); };
+  const handleChange = (key, val) => { 
+    setDraft(d => ({ ...d, [key]: val })); 
+    setDirty(true); 
+  };
+
+  const handleDiscard = () => { 
+    setDraft({ ...fields }); 
+    setDirty(false); 
+  };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res  = await fetch(`${BASE}/api/cms`, {
-        method: "PUT", headers: getHeaders(),
+      const res = await fetch(`${BASE}/api/cms`, {
+        method: "PUT", 
+        headers: getHeaders(),
         body: JSON.stringify({ section: "hero", updates: draft }),
       });
-      const data = await res.json();
-      if (!res.ok) return notify(`❌ ${data.message}`);
+      const resData = await res.json();
+      
+      if (!res.ok) return notify(`❌ ${resData.message}`);
+
       notify("✅ Home section updated!");
-      setFields({ ...draft }); setDirty(false);
-    } catch { notify("❌ Failed to save changes"); }
-    finally  { setSaving(false); }
+      // FIX: Sync state with server response (resData.data) 
+      // instead of just local draft to ensure data integrity
+      const updatedValue = resData.data || draft;
+      setFields(updatedValue); 
+      setDraft({ ...updatedValue });
+      setDirty(false);
+    } catch { 
+      notify("❌ Failed to save changes"); 
+    } finally { 
+      setSaving(false); 
+    }
   };
 
   return (

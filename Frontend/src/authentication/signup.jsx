@@ -14,7 +14,10 @@ export default function Signup() {
   const [phone, setPhone]           = useState("");
   const [address, setAddress]       = useState("");
   const [errors, setErrors]         = useState({});
-  const [formMessage, setFormMessage] = useState({ text: "", type: "" });
+  const [formMessage, setFormMessage]     = useState({ text: "", type: "" });
+  const [signupSuccess, setSignupSuccess] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState("");
+
   const navigate = useNavigate();
   const { setUser } = useAuth();
 
@@ -50,8 +53,10 @@ export default function Signup() {
       });
       const data = await res.json();
       if (!res.ok) { showMessage(data.message || "Signup failed."); return; }
-      showMessage("Account created successfully!", "success");
-      navigate("/login");
+
+      // ✅ Save the email then show the verification guidance screen
+      setSubmittedEmail(email);
+      setSignupSuccess(true);
     } catch {
       showMessage("Network error. Please try again.");
     }
@@ -93,6 +98,69 @@ export default function Signup() {
   const inputClass = (field) =>
     `auth-input${errors[field] ? " auth-input--error" : ""}`;
 
+  // ─────────────────────────────────────────
+  // SUCCESS SCREEN — shown after signup
+  // ─────────────────────────────────────────
+  if (signupSuccess) {
+    return (
+      <AuthLayout dotActive={1}>
+        <div style={{ textAlign: "center", padding: "8px 0" }}>
+
+          <div style={{
+            width: "64px", height: "64px", borderRadius: "50%",
+            background: "#f0fdf4", border: "2px solid #86efac",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            margin: "0 auto 20px", fontSize: "1.9rem",
+          }}>
+            📬
+          </div>
+
+          <h2 className="auth-title" style={{ marginBottom: "8px" }}>
+            Check your email
+          </h2>
+
+          <p style={{ color: "#64748b", fontSize: "0.87rem", lineHeight: 1.6, marginBottom: "4px" }}>
+            We sent a verification link to:
+          </p>
+          <p style={{
+            fontWeight: 700, color: "#1e293b", fontSize: "0.92rem",
+            marginBottom: "18px", wordBreak: "break-all",
+          }}>
+            {submittedEmail}
+          </p>
+
+          <p style={{
+            color: "#64748b", fontSize: "0.82rem", lineHeight: 1.8,
+            marginBottom: "26px", padding: "0 4px",
+          }}>
+            Click the link in that email to activate your account
+            before logging in. It may take a minute — also check
+            your <strong>spam or junk folder</strong>.
+          </p>
+
+          <Link
+            to="/login"
+            className="auth-btn"
+            style={{ display: "block", textDecoration: "none", textAlign: "center" }}
+          >
+            Go to Login
+          </Link>
+
+          <p style={{ marginTop: "16px", fontSize: "0.78rem", color: "#94a3b8" }}>
+            Didn't receive it?{" "}
+            <Link to="/login" style={{ color: "#3b82f6", textDecoration: "underline" }}>
+              You can resend it from the login page.
+            </Link>
+          </p>
+
+        </div>
+      </AuthLayout>
+    );
+  }
+
+  // ─────────────────────────────────────────
+  // SIGNUP FORM
+  // ─────────────────────────────────────────
   return (
     <AuthLayout dotActive={1}>
       <h2 className="auth-title">Create account</h2>
@@ -156,7 +224,6 @@ export default function Signup() {
         {errors.address && <span className="auth-error">{errors.address}</span>}
       </div>
 
-      {/* Form-level message */}
       {formMessage.text && (
         <p style={{
           fontSize: "0.82rem",

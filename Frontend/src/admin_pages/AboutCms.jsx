@@ -1,4 +1,3 @@
-// src/admin_pages/AboutCms.jsx
 import { useState, useEffect, useCallback } from "react";
 
 const BASE = "http://localhost:5000";

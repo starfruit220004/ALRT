@@ -1,20 +1,31 @@
 import React, { useContext, useState } from "react";
 import { DoorContext } from "./DoorContext";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, Trash2 } from "lucide-react";
 import ClearSmsModal from "../components/ClearSmsModal";
+
+const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 function Calendar({ smsHistory, selectedDate, onSelectDate }) {
   const today = new Date();
-  const [viewYear, setViewYear]   = useState(today.getFullYear());
+  const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
 
+  // FIX: Added safety check to prevent toISOString() crash in Calendar
   const activeDates = new Set(
-    smsHistory.map((s) => new Date(s.created_at).toISOString().slice(0, 10))
+    smsHistory
+      .map((s) => {
+        const d = new Date(s.createdAt || s.created_at);
+        return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+      })
+      .filter(Boolean)
   );
 
-  const daysInMonth    = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay();
-  const monthName      = new Date(viewYear, viewMonth).toLocaleString("en-US", { month: "long", year: "numeric" });
+  const monthName = new Date(viewYear, viewMonth).toLocaleString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
 
   const prevMonth = () => {
     if (viewMonth === 0) { setViewMonth(11); setViewYear((y) => y - 1); }
@@ -24,255 +35,266 @@ function Calendar({ smsHistory, selectedDate, onSelectDate }) {
     if (viewMonth === 11) { setViewMonth(0); setViewYear((y) => y + 1); }
     else setViewMonth((m) => m + 1);
   };
-
-  const toKey = (day) => {
-    const mm = String(viewMonth + 1).padStart(2, "0");
-    const dd = String(day).padStart(2, "0");
-    return `${viewYear}-${mm}-${dd}`;
-  };
+  const toKey = (day) =>
+    `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 md:p-5 w-full">
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 w-full">
       <div className="flex items-center justify-between mb-4">
-        <button onClick={prevMonth} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors text-gray-500">
-          <ChevronLeft size={15} />
+        <button onClick={prevMonth} className="p-1 hover:bg-gray-100 rounded text-gray-500">
+          <ChevronLeft size={16} />
         </button>
-        <p className="text-sm font-semibold text-gray-800">{monthName}</p>
-        <button onClick={nextMonth} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors text-gray-500">
-          <ChevronRight size={15} />
+        <p className="text-sm font-bold text-gray-800">{monthName}</p>
+        <button onClick={nextMonth} className="p-1 hover:bg-gray-100 rounded text-gray-500">
+          <ChevronRight size={16} />
         </button>
       </div>
-      <div className="grid grid-cols-7 mb-1">
+      <div className="grid grid-cols-7 mb-1 text-center text-[10px] font-bold text-gray-400 uppercase">
         {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
-          <div key={d} className="text-center text-[10px] font-semibold text-gray-400 uppercase py-1">{d}</div>
+          <div key={d} className="py-1">{d}</div>
         ))}
       </div>
       <div className="grid grid-cols-7 gap-y-1">
-        {Array.from({ length: firstDayOfWeek }).map((_, i) => <div key={`e-${i}`} />)}
+        {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+          <div key={`e-${i}`} />
+        ))}
         {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
-          const key        = toKey(day);
-          const hasData    = activeDates.has(key);
+          const key = toKey(day);
+          const hasData = activeDates.has(key);
           const isSelected = selectedDate === key;
-          const isToday    = key === today.toISOString().slice(0, 10);
+          const isToday = key === today.toISOString().slice(0, 10);
           return (
             <button
               key={day}
               onClick={() => onSelectDate(isSelected ? null : key)}
-              className={`
-                relative mx-auto w-7 h-7 md:w-8 md:h-8 flex items-center justify-center rounded-full text-xs font-medium transition-all duration-150
-                ${isSelected ? "bg-blue-600 text-white shadow-md" : ""}
-                ${!isSelected && isToday ? "border border-blue-400 text-blue-600" : ""}
-                ${!isSelected && !isToday ? "text-gray-700 hover:bg-gray-100" : ""}
-                ${hasData && !isSelected ? "font-bold" : ""}
-              `}
+              className={`relative mx-auto w-8 h-8 flex items-center justify-center rounded-full text-xs font-semibold transition-all
+                ${isSelected ? "bg-blue-600 text-white shadow-md"
+                  : isToday ? "border border-blue-400 text-blue-600"
+                  : "text-gray-700 hover:bg-gray-100"}`}
             >
               {day}
               {hasData && !isSelected && (
-                <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-blue-500" />
+                <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-blue-500" />
               )}
             </button>
           );
         })}
-      </div>
-      <div className="flex flex-wrap items-center gap-2 md:gap-3 mt-4 pt-3 border-t border-gray-100">
-        <div className="flex items-center gap-1.5 text-xs text-gray-400">
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block" /> Has SMS
-        </div>
-        <div className="flex items-center gap-1.5 text-xs text-gray-400">
-          <span className="w-4 h-4 rounded-full bg-blue-600 inline-block" /> Selected
-        </div>
-        {selectedDate && (
-          <button onClick={() => onSelectDate(null)} className="ml-auto text-xs text-blue-500 hover:text-blue-700 transition-colors">
-            Clear filter
-          </button>
-        )}
       </div>
     </div>
   );
 }
 
 const Notifications = () => {
-  const { smsLogs = [], setSmsLogs } = useContext(DoorContext);
+  const { smsLogs = [], setSmsLogs, sms_enabled, setSmsEnabled } = useContext(DoorContext);
   const [selectedDate, setSelectedDate] = useState(null);
-  const [calendarOpen, setCalendarOpen] = useState(false);
-  const [showConfirm, setShowConfirm]   = useState(false);
+  const [search, setSearch] = useState("");
+  const [showConfirm, setShowConfirm] = useState(false);
   const token = localStorage.getItem("token");
+
+  // FIX: Fixed the crash on Line 87 (filter logic)
+  const filteredSms = smsLogs.filter((s) => {
+    const d = new Date(s.createdAt || s.created_at);
+    
+    // Safety check for Invalid Date
+    let logDate = "";
+    if (!isNaN(d.getTime())) {
+        logDate = d.toISOString().slice(0, 10);
+    }
+
+    const matchesDate = selectedDate ? logDate === selectedDate : true;
+    const matchesSearch =
+      (s.message || "").toLowerCase().includes(search.toLowerCase()) ||
+      (s.status || "").toLowerCase().includes(search.toLowerCase());
+      
+    return matchesDate && matchesSearch;
+  });
+
+  const handleSmsToggle = async () => {
+    const newValue = !sms_enabled;
+    setSmsEnabled(newValue);
+    try {
+      await fetch(`${API}/api/settings/sms`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ value: newValue }),
+      });
+    } catch (err) {
+      console.error("Error toggling SMS:", err);
+      setSmsEnabled(!newValue); // revert on failure
+    }
+  };
 
   const handleDeleteLog = async (id) => {
     try {
-      await fetch(`http://localhost:5000/api/dashboard/sms-logs/${id}`, {
+      await fetch(`${API}/api/dashboard/sms-logs/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
       setSmsLogs((prev) => prev.filter((l) => l.id !== id));
     } catch (err) {
-      console.error("Error deleting SMS log:", err);
+      console.error(err);
     }
   };
 
   const handleClearAll = async () => {
-    if (smsLogs.length === 0) return;
     try {
-      await Promise.all(
-        smsLogs.map((l) =>
-          fetch(`http://localhost:5000/api/dashboard/sms-logs/${l.id}`, {
-            method: "DELETE",
-            headers: { Authorization: `Bearer ${token}` },
-          })
-        )
-      );
+      await fetch(`${API}/api/dashboard/sms-logs`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setSmsLogs([]);
     } catch (err) {
       console.error("Error clearing SMS logs:", err);
+    } finally {
+      setShowConfirm(false);
     }
   };
 
-  const smsHistory = smsLogs.map((log) => {
-    const dateObj = new Date(log.created_at);
-    const date    = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    const time    = dateObj.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-    const message = log.status === "Alarm"
-      ? `ALRT: Door opened during restricted hours at ${time}. Please check immediately.`
-      : `ALRT: Door opened at ${time}`;
-    const event = log.status === "Alarm" ? "Alarm triggered" : `Door ${log.status}`;
-    return { ...log, message, event, date, time };
-  });
-
-  const filteredSms = selectedDate
-    ? smsHistory.filter((s) => new Date(s.created_at).toISOString().slice(0, 10) === selectedDate)
-    : smsHistory;
-
-  const selectedLabel = selectedDate
-    ? new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
-    : null;
-
   return (
-    <div className="p-4 md:p-6 space-y-4 md:space-y-5">
-      {showConfirm && (
-        <ClearSmsModal
-          onConfirm={() => { setShowConfirm(false); handleClearAll(); }}
-          onCancel={() => setShowConfirm(false)}
-        />
-      )}
-
-      <div className="flex items-start justify-between gap-3">
+    <div className="p-4 md:p-6 pt-20 md:pt-8 space-y-6 max-w-7xl mx-auto">
+      <div className="flex items-start justify-between border-b border-gray-100 pb-4">
         <div>
-          <h2 className="text-xl md:text-2xl font-bold text-gray-800">SMS Notifications</h2>
-          <p className="text-sm text-gray-500 mt-0.5">Automatic SMS alerts sent by the system</p>
+          <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900">SMS Notifications</h2>
+          <p className="text-sm md:text-base text-gray-500 mt-1">History of sent SMS alerts</p>
         </div>
-        {smsHistory.length > 0 && (
-          <button
-            onClick={() => setShowConfirm(true)}
-            className="flex items-center gap-1.5 px-3 md:px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 text-sm font-medium rounded-lg border border-red-200 transition-colors whitespace-nowrap"
-          >
-            🗑 <span className="hidden sm:inline">Clear All</span>
-          </button>
-        )}
-      </div>
-
-      <div className="md:hidden">
         <button
-          onClick={() => setCalendarOpen((o) => !o)}
-          className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 shadow-sm"
+          onClick={() => setShowConfirm(true)}
+          className="px-4 py-2 bg-red-50 text-red-600 text-sm font-medium rounded-lg border border-red-200 hover:bg-red-100 transition-colors"
         >
-          <span>📅 {selectedDate ? selectedLabel : "Filter by date"}</span>
-          <ChevronRight size={15} className={`transition-transform ${calendarOpen ? "rotate-90" : ""}`} />
+          Clear All
         </button>
-        {calendarOpen && (
-          <div className="mt-2">
-            <Calendar
-              smsHistory={smsHistory}
-              selectedDate={selectedDate}
-              onSelectDate={(d) => { setSelectedDate(d); setCalendarOpen(false); }}
-            />
-          </div>
-        )}
       </div>
 
-      <div className="flex flex-col md:flex-row gap-4 md:gap-5 items-start">
-        <div className="hidden md:block w-72 flex-shrink-0">
-          <Calendar smsHistory={smsHistory} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
+        <div className="hidden lg:flex flex-col gap-4 w-72 shrink-0">
+          <div
+            className={`rounded-xl border shadow-sm p-4 flex items-center justify-between transition-colors ${
+              sms_enabled ? "bg-blue-50 border-blue-200" : "bg-white border-gray-200"
+            }`}
+          >
+            <div>
+              <p className={`text-sm font-bold ${sms_enabled ? "text-blue-700" : "text-gray-800"}`}>
+                SMS Status
+              </p>
+              <p className={`text-xs ${sms_enabled ? "text-blue-500" : "text-gray-500"}`}>
+                {sms_enabled ? "Active" : "Disabled"}
+              </p>
+            </div>
+            <button
+              onClick={handleSmsToggle}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                sms_enabled ? "bg-blue-600" : "bg-gray-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                  sms_enabled ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+          <Calendar
+            smsHistory={smsLogs}
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+          />
         </div>
 
-        <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col w-full">
-          <div className="px-4 md:px-5 py-3 md:py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0 gap-3">
-            <div className="min-w-0">
-              <p className="font-semibold text-gray-800">SMS History</p>
-              {selectedLabel && <p className="text-xs text-blue-500 mt-0.5 truncate">Showing: {selectedLabel}</p>}
+        <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col w-full overflow-hidden h-[540px]">
+          <div className="p-4 border-b border-gray-100 flex items-center gap-4 bg-white">
+            <span className="font-bold text-gray-800 shrink-0">SMS History</span>
+            <div className="relative w-48 md:w-64">
+              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search logs..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-blue-400 w-full transition-all"
+              />
             </div>
-            {selectedDate && (
-              <span className="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2.5 py-1 rounded-full font-medium whitespace-nowrap flex-shrink-0">
-                {filteredSms.length} result{filteredSms.length !== 1 ? "s" : ""}
-              </span>
-            )}
           </div>
 
-          <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: "420px" }}>
-            <table className="w-full text-sm table-fixed min-w-[560px]">
-              <colgroup>
-                <col className="w-[14%]" />
-                <col className="w-[12%]" />
-                <col className="w-[20%]" />
-                <col className="w-[40%]" />
-                <col className="w-[14%]" />
-              </colgroup>
-              <thead className="sticky top-0 z-10">
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left px-4 md:px-5 py-3 md:py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</th>
-                  <th className="text-left px-4 md:px-5 py-3 md:py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Time</th>
-                  <th className="text-left px-4 md:px-5 py-3 md:py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Event</th>
-                  <th className="text-left px-4 md:px-5 py-3 md:py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Message</th>
-                  <th className="text-left px-4 md:px-5 py-3 md:py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Action</th>
+          <div className="overflow-y-auto flex-1">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-gray-50 z-10 border-b border-gray-100 text-xs font-bold text-gray-400 uppercase">
+                <tr className="text-left">
+                  <th className="px-5 py-3">Event</th>
+                  <th className="px-5 py-3">Date</th>
+                  <th className="px-5 py-3">Time</th>
+                  <th className="px-5 py-3">Message</th>
+                  <th className="px-5 py-3 text-right">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredSms.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="text-center py-14 text-gray-400">
-                      <div className="flex flex-col items-center gap-2">
-                        <span className="text-3xl">📵</span>
-                        <p className="text-sm">{selectedDate ? "No SMS on this date" : "No SMS sent yet"}</p>
-                      </div>
+                    <td colSpan={5} className="text-center py-20 text-gray-400 italic">
+                      No logs found
                     </td>
                   </tr>
                 ) : (
-                  filteredSms.map((sms, i) => (
-                    <tr key={sms.id ?? i} className="border-b border-gray-50 hover:bg-gray-50/80 transition-colors">
-                      <td className="px-4 md:px-5 py-3 md:py-3.5 font-medium text-gray-800 text-xs md:text-sm">{sms.date}</td>
-                      <td className="px-4 md:px-5 py-3 md:py-3.5 text-gray-500 text-xs md:text-sm">{sms.time}</td>
-                      <td className="px-4 md:px-5 py-3 md:py-3.5">
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${
-                          sms.status === "Alarm"
-                            ? "bg-red-100 text-red-600 border border-red-200"
-                            : "bg-orange-100 text-orange-600 border border-orange-200"
-                        }`}>
-                          {sms.status === "Alarm" ? "⚠️" : "🚪"} {sms.event}
-                        </span>
-                      </td>
-                      <td className="px-4 md:px-5 py-3 md:py-3.5 text-gray-600 text-xs leading-relaxed">{sms.message}</td>
-                      <td className="px-4 md:px-5 py-3 md:py-3.5">
-                        <button
-                          onClick={() => handleDeleteLog(sms.id)}
-                          className="text-xs text-red-400 hover:text-red-600 hover:bg-red-50 px-2 md:px-2.5 py-1 rounded-lg transition-colors border border-transparent hover:border-red-100"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                  filteredSms.map((sms) => {
+                    const isAlarm = sms.status === "Alarm";
+                    const isOpen = sms.status === "Opened" || sms.status === "OPEN";
+                    
+                    // Safe date display for the table
+                    const smsDateObj = new Date(sms.createdAt || sms.created_at);
+                    const isValid = !isNaN(smsDateObj.getTime());
+
+                    return (
+                      <tr
+                        key={sms.id}
+                        className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
+                      >
+                        <td className="px-5 py-3">
+                          <span
+                            className={`font-bold uppercase ${
+                              isAlarm ? "text-red-600" : isOpen ? "text-green-700" : "text-slate-600"
+                            }`}
+                          >
+                            {sms.status}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-gray-500 whitespace-nowrap">
+                          {isValid ? smsDateObj.toLocaleDateString() : "N/A"}
+                        </td>
+                        <td className="px-5 py-3 text-gray-500 whitespace-nowrap">
+                          {isValid ? smsDateObj.toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }) : "N/A"}
+                        </td>
+                        <td className="px-5 py-3 italic text-gray-400 max-w-xs truncate">
+                          {sms.message}
+                        </td>
+                        <td className="px-5 py-3 text-right">
+                          <button
+                            onClick={() => handleDeleteLog(sms.id)}
+                            className="text-red-400 hover:text-red-600 transition-all p-1.5 hover:bg-red-50 rounded-lg"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </div>
-
-          <div className="px-4 md:px-5 py-2.5 border-t border-gray-100 bg-gray-50 flex-shrink-0">
-            <p className="text-xs text-gray-400">
-              Showing <span className="font-semibold text-gray-600">{filteredSms.length}</span> of{" "}
-              <span className="font-semibold text-gray-600">{smsHistory.length}</span> entries
-            </p>
-          </div>
         </div>
       </div>
+
+      {showConfirm && (
+        <ClearSmsModal
+          onConfirm={handleClearAll}
+          onCancel={() => setShowConfirm(false)}
+        />
+      )}
     </div>
   );
 };
