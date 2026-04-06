@@ -8,8 +8,8 @@ import Sidebar from "./components/Sidebar";
 // Auth
 import Login          from "./authentication/login";
 import Signup         from "./authentication/signup";
-import ForgotPassword from "./authentication/forgotPassword";
-import ResetPassword  from "./authentication/resetPassword";
+import ForgotPassword from "./authentication/ForgotPassword";
+import ResetPassword  from "./authentication/ResetPassword";
 import VerifyEmail    from "./authentication/VerifyEmail";
 
 // Pages
@@ -69,10 +69,11 @@ function Layout() {
   const showSidebar = !isAuthPage && !isAdminPage && !isLanding;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {showSidebar && <Sidebar onProfileClick={() => setShowProfile(true)} />}
+    // ✅ DoorProvider now wraps the entire layout including Sidebar
+    <DoorProvider>
+      <div className="min-h-screen bg-gray-50 flex">
+        {showSidebar && <Sidebar onProfileClick={() => setShowProfile(true)} />}
 
-      <DoorProvider>
         <main className={`flex-1 overflow-auto ${showSidebar ? "md:p-6" : ""}`}>
           <Routes>
             {/* Landing */}
@@ -99,10 +100,10 @@ function Layout() {
             <Route path="*"                element={<Navigate to="/" replace />} />
           </Routes>
         </main>
-      </DoorProvider>
 
-      {showProfile && <Profile onClose={() => setShowProfile(false)} />}
-    </div>
+        {showProfile && <Profile onClose={() => setShowProfile(false)} />}
+      </div>
+    </DoorProvider>
   );
 }
 
