@@ -1,7 +1,7 @@
 // src/hooks/useCms.js
 import { useState, useEffect } from "react";
 
-const BASE = "http://localhost:5000";
+const BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export function useCms(section) {
   const [data, setData]       = useState(null);

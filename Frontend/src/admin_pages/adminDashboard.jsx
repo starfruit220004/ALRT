@@ -44,7 +44,8 @@ export default function AdminDashboard() {
 
   const loadUsers = useCallback(async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/admin/users", { headers: getHeaders() });
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      const res = await fetch(`${apiUrl}/api/admin/users`, { headers: getHeaders() });
       if (!res.ok) return notify(`❌ Failed to load users`);
       const data = await res.json();
       setUsers(Array.isArray(data) ? data : []);
@@ -61,7 +62,8 @@ export default function AdminDashboard() {
     const action = currentIsActive ? "deactivate" : "activate";
     
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/users/${userId}/${action}`, {
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      const res = await fetch(`${apiUrl}/api/admin/users/${userId}/${action}`, {
         method: "PATCH",
         headers: getHeaders(),
       });
@@ -216,3 +218,4 @@ export default function AdminDashboard() {
     </div>
   );
 }
+

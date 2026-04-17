@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: smart-alert-backend
+    root: Backend
+    runtime: node
+    buildCommand: npm install && npx prisma generate
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        fromSecret: PORT
+      - key: DATABASE_URL
+        fromSecret: DATABASE_URL
+      - key: JWT_SECRET
+        fromSecret: JWT_SECRET
+      - key: FRONTEND_URL
+        fromSecret: FRONTEND_URL
+      - key: MQTT_BROKER
+        fromSecret: MQTT_BROKER
+      - key: EMAIL_USER
+        fromSecret: EMAIL_USER
+      - key: EMAIL_PASS
+        fromSecret: EMAIL_PASS
+      - key: ADMIN_SECRET
+        fromSecret: ADMIN_SECRET

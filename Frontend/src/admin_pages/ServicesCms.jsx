@@ -1,7 +1,7 @@
 // src/admin_pages/ServicesCms.jsx
 import { useState, useEffect, useCallback } from "react";
 
-const BASE = "http://localhost:5000";
+const BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const FIELDS = [
   { key: "service0Icon",  label: "Service 1 — Icon",        textarea: false },

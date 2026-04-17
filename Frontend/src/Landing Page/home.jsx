@@ -1,7 +1,7 @@
 // src/Landing Page/home.jsx
 import { useState, useEffect } from "react";
 
-const BASE = "http://localhost:5000";
+const BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const DEFAULT_WORDS = ["smarter.", "faster.", "safer.", "reliable."];
 
