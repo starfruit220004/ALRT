@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 
+const BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 const EMPTY = {
   firstName:  "",
   lastName:   "",
@@ -45,7 +47,7 @@ export default function AddUserModal({ isOpen, onClose, getHeaders, onSuccess })
 
     try {
       const name = `${form.firstName} ${form.lastName}`.trim();
-      const res = await fetch("http://localhost:5000/api/admin/users", {
+      const res = await fetch(`${BASE}/api/admin/users`, {
         method:  "POST",
         headers: getHeaders(),
         body:    JSON.stringify({ ...form, name, role: "user" }),
@@ -73,16 +75,12 @@ export default function AddUserModal({ isOpen, onClose, getHeaders, onSuccess })
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
-
-        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h2 className="font-semibold text-gray-800">Add new user</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
             <X size={18} />
           </button>
         </div>
-
-        {/* Toast */}
         {message && (
           <div className={`mx-5 mt-4 p-3 rounded-lg border text-sm font-medium ${
             message.startsWith("✅")
@@ -92,93 +90,53 @@ export default function AddUserModal({ isOpen, onClose, getHeaders, onSuccess })
             {message}
           </div>
         )}
-
-        {/* Form */}
         <div className="p-5 grid grid-cols-2 gap-3">
-
-          {/* First / Last */}
           <div>
             <label className="block text-xs text-gray-500 mb-1">First name</label>
-            <input className={ic("firstName")} placeholder="Juan"
-              value={form.firstName} onChange={set("firstName")} />
+            <input className={ic("firstName")} placeholder="Juan" value={form.firstName} onChange={set("firstName")} />
             {errors.firstName && <span className="text-xs text-red-500">{errors.firstName}</span>}
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">Last name</label>
-            <input className={ic("lastName")} placeholder="Dela Cruz"
-              value={form.lastName} onChange={set("lastName")} />
+            <input className={ic("lastName")} placeholder="Dela Cruz" value={form.lastName} onChange={set("lastName")} />
             {errors.lastName && <span className="text-xs text-red-500">{errors.lastName}</span>}
           </div>
-
-          {/* Middle name — full width */}
           <div className="col-span-2">
-            <label className="block text-xs text-gray-500 mb-1">
-              Middle name <span className="text-gray-400">(optional)</span>
-            </label>
-            <input
-              className="border border-gray-200 p-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 w-full"
-              placeholder="Santos"
-              value={form.middleName}
-              onChange={set("middleName")}
-            />
+            <label className="block text-xs text-gray-500 mb-1">Middle name <span className="text-gray-400">(optional)</span></label>
+            <input className="border border-gray-200 p-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 w-full" placeholder="Santos" value={form.middleName} onChange={set("middleName")} />
           </div>
-
-          {/* Username — full width */}
           <div className="col-span-2">
             <label className="block text-xs text-gray-500 mb-1">Username</label>
-            <input className={ic("username")} placeholder="juandelacruz"
-              value={form.username} onChange={set("username")} />
+            <input className={ic("username")} placeholder="juandelacruz" value={form.username} onChange={set("username")} />
             {errors.username && <span className="text-xs text-red-500">{errors.username}</span>}
           </div>
-
-          {/* Email — full width */}
           <div className="col-span-2">
             <label className="block text-xs text-gray-500 mb-1">Email</label>
-            <input className={ic("email")} placeholder="you@example.com"
-              value={form.email} onChange={set("email")} />
+            <input className={ic("email")} placeholder="you@example.com" value={form.email} onChange={set("email")} />
             {errors.email && <span className="text-xs text-red-500">{errors.email}</span>}
           </div>
-
-          {/* Password — full width */}
           <div className="col-span-2">
             <label className="block text-xs text-gray-500 mb-1">Password</label>
-            <input type="password" className={ic("password")} placeholder="••••••••"
-              value={form.password} onChange={set("password")} />
+            <input type="password" className={ic("password")} placeholder="••••••••" value={form.password} onChange={set("password")} />
             {errors.password && <span className="text-xs text-red-500">{errors.password}</span>}
           </div>
-
-          {/* Phone / Address side by side */}
           <div>
             <label className="block text-xs text-gray-500 mb-1">Phone number</label>
-            <input className={ic("phone")} placeholder="+639XXXXXXXXX"
-              value={form.phone} onChange={set("phone")} />
+            <input className={ic("phone")} placeholder="+639XXXXXXXXX" value={form.phone} onChange={set("phone")} />
             {errors.phone && <span className="text-xs text-red-500">{errors.phone}</span>}
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">Address</label>
-            <input className={ic("address")} placeholder="123 Rizal St"
-              value={form.address} onChange={set("address")} />
+            <input className={ic("address")} placeholder="123 Rizal St" value={form.address} onChange={set("address")} />
             {errors.address && <span className="text-xs text-red-500">{errors.address}</span>}
           </div>
-
-          {/* Submit */}
-          <button
-            onClick={handleAdd}
-            className="col-span-2 bg-blue-600 text-white p-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors mt-1"
-          >
+          <button onClick={handleAdd} className="col-span-2 bg-blue-600 text-white p-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors mt-1">
             Create user
           </button>
         </div>
-
-        {/* Footer note */}
         <div className="px-5 py-3 border-t border-gray-100 bg-gray-50">
-          <p className="text-xs text-gray-400">
-            Role is always set to{" "}
-            <span className="font-medium text-gray-500">user</span>{" "}
-            — only one admin account is permitted.
-          </p>
+          <p className="text-xs text-gray-400">Role is always set to <span className="font-medium text-gray-500">user</span> — only one admin account is permitted.</p>
         </div>
-
       </div>
     </div>
   );

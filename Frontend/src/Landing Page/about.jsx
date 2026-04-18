@@ -1,7 +1,6 @@
-// src/Landing Page/about.jsx
 import { useState, useEffect } from "react";
 
-const BASE = "http://localhost:5000";
+const BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export default function About() {
   const [cms, setCms] = useState(null);
@@ -22,12 +21,9 @@ export default function About() {
 
   return (
     <section id="about" className="relative min-h-screen bg-[#060f1e] py-16 md:py-24 px-6 md:px-12 overflow-hidden">
-
       <div className="absolute w-112.5 h-112.5 rounded-full bg-blue-700 blur-[130px] opacity-10 -top-24 -right-24 pointer-events-none" />
-
       <div className="relative max-w-5xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center">
-
           <div className="flex flex-col gap-5 text-center md:text-left">
             <span className="inline-block text-xs font-bold tracking-[0.18em] uppercase text-blue-400 border border-blue-400/30 rounded-full px-4 py-1 w-fit mx-auto md:mx-0">
               About the Project
@@ -42,7 +38,6 @@ export default function About() {
               {cms?.body2 ?? "This IoT system bridges the gap between physical sensors and human response, delivering real-time alerts through a reliable, low-latency notification pipeline."}
             </p>
           </div>
-
           <div className="grid grid-cols-2 gap-3 md:gap-4">
             {stats.map(({ n, l }) => (
               <div key={l} className="bg-white/4 border border-white/8 rounded-2xl p-5 md:p-6 flex flex-col gap-1">
@@ -51,7 +46,6 @@ export default function About() {
               </div>
             ))}
           </div>
-
         </div>
       </div>
     </section>

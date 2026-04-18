@@ -3,7 +3,7 @@ require('dotenv').config();
 
 const pool = new Pool({
     user: process.env.DB_USER || "postgres",
-    host: process.env.DB_HOST || "localhost",
+    host: process.env.DB_HOST || "postgresql://alrt_db_user:1MCZ2cObEuqLFf79MXEvPzN8m0OtjgQ1@dpg-d7go887avr4c73aekgkg-a.oregon-postgres.render.com/alrt_db",
     database: process.env.DB_NAME || "alrt_db",
     password: process.env.DB_PASSWORD || "password",
     port: process.env.DB_PORT || 5432,

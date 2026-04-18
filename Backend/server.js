@@ -35,6 +35,7 @@ const server = http.createServer(app);
 const allowedOrigins = [
   process.env.FRONTEND_URL || "http://localhost:5173",
   "http://localhost:5173",
+  "https://alrt-black.vercel.app",  
 ];
 
 const io = new Server(server, {

@@ -7,6 +7,7 @@ const sendEmail = require("../utils/sendEmail");
 const { sendVerificationEmail } = sendEmail;
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret";
+if (!JWT_SECRET) throw new Error("FATAL: JWT_SECRET environment variable is not set. Server cannot start.");
 
 function val(v) {
   return v != null && v !== "" ? v : null;
@@ -348,7 +349,8 @@ exports.forgotPassword = async (req, res) => {
     }
 
     const resetToken  = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: "10m" });
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    const frontendUrl = process.env.FRONTEND_URL;
+if (!frontendUrl) throw new Error("FATAL: FRONTEND_URL environment variable is not set.");
     const resetUrl    = `${frontendUrl}/reset-password?token=${resetToken}`;
     const message     = `You requested a password reset.\n\nClick the link below:\n\n${resetUrl}\n\nExpires in 10 minutes. Ignore if you did not request this.`;
 

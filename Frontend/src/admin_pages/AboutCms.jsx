@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
-const BASE = "http://localhost:5000";
+const BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const FIELDS = [
   { key: "headline",   label: "Headline",          textarea: false },
@@ -69,7 +69,6 @@ export default function AboutCms({ getHeaders, notify }) {
           </div>
         )}
       </div>
-
       <div className="p-5">
         {loading ? (
           <div className="flex items-center justify-center py-12 text-gray-400 text-sm gap-2">
@@ -92,7 +91,6 @@ export default function AboutCms({ getHeaders, notify }) {
           </div>
         )}
       </div>
-
       {dirty && !loading && (
         <div className="flex items-center justify-between px-5 py-3 bg-amber-50 border-t border-amber-200">
           <p className="text-xs text-amber-700 font-medium">⚠ You have unsaved changes</p>
