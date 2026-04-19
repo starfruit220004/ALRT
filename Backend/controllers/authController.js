@@ -44,7 +44,7 @@ exports.signup = async (req, res) => {
         name:        val(name),
         email,
         password:    hashedPassword,
-        role:        "user",            // public signup always creates a regular user
+        role:        "user",
         phone:       val(phone),
         username:    val(username),
         firstName:   val(firstName),
@@ -338,21 +338,29 @@ exports.updateProfile = async (req, res) => {
 };
 
 // ─────────────────────────────────────────
-// 7. FORGOT PASSWORD
+// 7. FORGOT PASSWORD  ✅ FIXED
 // ─────────────────────────────────────────
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
+
+  // ✅ FIX: Validate FRONTEND_URL first and return a proper error — never throw
+  const frontendUrl = process.env.FRONTEND_URL;
+  if (!frontendUrl) {
+    console.error("FATAL: FRONTEND_URL environment variable is not set.");
+    return res.status(500).json({ message: "Server configuration error. Please contact support." });
+  }
+
   try {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       return res.status(404).json({ message: "No account found with that email address." });
     }
 
-    const resetToken  = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: "10m" });
-    const frontendUrl = process.env.FRONTEND_URL;
-if (!frontendUrl) throw new Error("FATAL: FRONTEND_URL environment variable is not set.");
-    const resetUrl    = `${frontendUrl}/reset-password?token=${resetToken}`;
-    const message     = `You requested a password reset.\n\nClick the link below:\n\n${resetUrl}\n\nExpires in 10 minutes. Ignore if you did not request this.`;
+    const resetToken = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: "10m" });
+
+    // ✅ FIX: Use the CURRENT live frontend URL from env variable
+    const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
+    const message  = `You requested a password reset.\n\nClick the link below:\n\n${resetUrl}\n\nExpires in 10 minutes. Ignore if you did not request this.`;
 
     await sendEmail({ email: user.email, subject: "Password Reset Request", message });
     res.status(200).json({ message: "Reset link sent to email" });
@@ -363,10 +371,16 @@ if (!frontendUrl) throw new Error("FATAL: FRONTEND_URL environment variable is n
 };
 
 // ─────────────────────────────────────────
-// 8. RESET PASSWORD
+// 8. RESET PASSWORD  ✅ FIXED
 // ─────────────────────────────────────────
 exports.resetPassword = async (req, res) => {
   const { token, newPassword } = req.body;
+
+  // ✅ FIX: Validate inputs before doing anything
+  if (!token)       return res.status(400).json({ message: "Reset token is required." });
+  if (!newPassword) return res.status(400).json({ message: "New password is required." });
+  if (newPassword.length < 6) return res.status(400).json({ message: "Password must be at least 6 characters." });
+
   try {
     const decoded        = jwt.verify(token, JWT_SECRET);
     const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -379,6 +393,10 @@ exports.resetPassword = async (req, res) => {
     res.status(200).json({ message: "Password updated successfully" });
   } catch (err) {
     console.error("Reset Password Error:", err);
+    // ✅ FIX: Distinguish between expired token and other errors
+    if (err.name === "TokenExpiredError") {
+      return res.status(400).json({ message: "Reset link has expired. Please request a new one." });
+    }
     res.status(400).json({ message: "Invalid or expired token" });
   }
 };
@@ -411,14 +429,12 @@ exports.getPhoneNumber = async (req, res) => {
 //     Requires: ADMIN_SECRET header matching process.env.ADMIN_SECRET
 // ─────────────────────────────────────────
 exports.createAdmin = async (req, res) => {
-  // Guard: must supply the server-side secret
   const secret = req.headers["x-admin-secret"];
   if (!secret || secret !== process.env.ADMIN_SECRET) {
     return res.status(403).json({ message: "Forbidden" });
   }
 
   try {
-    // Guard: only one admin allowed at all times
     const existingAdmin = await prisma.user.findFirst({ where: { role: "admin" } });
     if (existingAdmin) {
       return res.status(409).json({ message: "An admin account already exists." });
@@ -438,7 +454,7 @@ exports.createAdmin = async (req, res) => {
         email,
         password:   hashedPassword,
         role:       "admin",
-        isVerified: true,       // admin doesn't need email verification
+        isVerified: true,
         isActive:   true,
         mqttTopic:  null,
         phone:      val(phone),
