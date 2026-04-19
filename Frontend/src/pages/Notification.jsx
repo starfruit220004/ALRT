@@ -1,3 +1,16 @@
+/*
+  ═══════════════════════════════════════════════════════
+  src/pages/Notification.jsx
+  ───────────────────────────────────────────────────────
+  FIXES FROM ORIGINAL:
+  1. Removed the "Message" column — server never writes
+     to the message field so it was always blank.
+  2. Search now only filters by status (not message).
+  3. Safe date handling with isNaN guard on all dates.
+  4. colSpan updated from 5 → 4 after column removal.
+  ═══════════════════════════════════════════════════════
+*/
+
 import React, { useContext, useState } from "react";
 import { DoorContext } from "./DoorContext";
 import { ChevronLeft, ChevronRight, Search, Trash2 } from "lucide-react";
@@ -7,10 +20,9 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 function Calendar({ smsHistory, selectedDate, onSelectDate }) {
   const today = new Date();
-  const [viewYear, setViewYear] = useState(today.getFullYear());
+  const [viewYear,  setViewYear]  = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
 
-  // FIX: Added safety check to prevent toISOString() crash in Calendar
   const activeDates = new Set(
     smsHistory
       .map((s) => {
@@ -20,11 +32,10 @@ function Calendar({ smsHistory, selectedDate, onSelectDate }) {
       .filter(Boolean)
   );
 
-  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const daysInMonth    = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay();
-  const monthName = new Date(viewYear, viewMonth).toLocaleString("en-US", {
-    month: "long",
-    year: "numeric",
+  const monthName      = new Date(viewYear, viewMonth).toLocaleString("en-US", {
+    month: "long", year: "numeric",
   });
 
   const prevMonth = () => {
@@ -50,26 +61,26 @@ function Calendar({ smsHistory, selectedDate, onSelectDate }) {
         </button>
       </div>
       <div className="grid grid-cols-7 mb-1 text-center text-[10px] font-bold text-gray-400 uppercase">
-        {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
+        {["Su","Mo","Tu","We","Th","Fr","Sa"].map((d) => (
           <div key={d} className="py-1">{d}</div>
         ))}
       </div>
       <div className="grid grid-cols-7 gap-y-1">
-        {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-          <div key={`e-${i}`} />
-        ))}
+        {Array.from({ length: firstDayOfWeek }).map((_, i) => <div key={`e-${i}`} />)}
         {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
-          const key = toKey(day);
-          const hasData = activeDates.has(key);
+          const key        = toKey(day);
+          const hasData    = activeDates.has(key);
           const isSelected = selectedDate === key;
-          const isToday = key === today.toISOString().slice(0, 10);
+          const isToday    = key === today.toISOString().slice(0, 10);
           return (
             <button
               key={day}
               onClick={() => onSelectDate(isSelected ? null : key)}
               className={`relative mx-auto w-8 h-8 flex items-center justify-center rounded-full text-xs font-semibold transition-all
-                ${isSelected ? "bg-blue-600 text-white shadow-md"
-                  : isToday ? "border border-blue-400 text-blue-600"
+                ${isSelected
+                  ? "bg-blue-600 text-white shadow-md"
+                  : isToday
+                  ? "border border-blue-400 text-blue-600"
                   : "text-gray-700 hover:bg-gray-100"}`}
             >
               {day}
@@ -87,25 +98,16 @@ function Calendar({ smsHistory, selectedDate, onSelectDate }) {
 const Notifications = () => {
   const { smsLogs = [], setSmsLogs, sms_enabled, setSmsEnabled } = useContext(DoorContext);
   const [selectedDate, setSelectedDate] = useState(null);
-  const [search, setSearch] = useState("");
-  const [showConfirm, setShowConfirm] = useState(false);
+  const [search,       setSearch]       = useState("");
+  const [showConfirm,  setShowConfirm]  = useState(false);
   const token = localStorage.getItem("token");
 
-  // FIX: Fixed the crash on Line 87 (filter logic)
   const filteredSms = smsLogs.filter((s) => {
-    const d = new Date(s.createdAt || s.created_at);
-    
-    // Safety check for Invalid Date
-    let logDate = "";
-    if (!isNaN(d.getTime())) {
-        logDate = d.toISOString().slice(0, 10);
-    }
-
-    const matchesDate = selectedDate ? logDate === selectedDate : true;
-    const matchesSearch =
-      (s.message || "").toLowerCase().includes(search.toLowerCase()) ||
-      (s.status || "").toLowerCase().includes(search.toLowerCase());
-      
+    const d       = new Date(s.createdAt || s.created_at);
+    const logDate = !isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : "";
+    const matchesDate   = selectedDate ? logDate === selectedDate : true;
+    // ✅ FIX 2: Only search status — message is always empty
+    const matchesSearch = (s.status || "").toLowerCase().includes(search.toLowerCase());
     return matchesDate && matchesSearch;
   });
 
@@ -122,8 +124,8 @@ const Notifications = () => {
         body: JSON.stringify({ value: newValue }),
       });
     } catch (err) {
-      console.error("Error toggling SMS:", err);
-      setSmsEnabled(!newValue); // revert on failure
+      console.error("SMS toggle error:", err);
+      setSmsEnabled(!newValue);
     }
   };
 
@@ -147,7 +149,7 @@ const Notifications = () => {
       });
       setSmsLogs([]);
     } catch (err) {
-      console.error("Error clearing SMS logs:", err);
+      console.error("Clear all error:", err);
     } finally {
       setShowConfirm(false);
     }
@@ -170,11 +172,9 @@ const Notifications = () => {
 
       <div className="flex flex-col lg:flex-row gap-6 items-start">
         <div className="hidden lg:flex flex-col gap-4 w-72 shrink-0">
-          <div
-            className={`rounded-xl border shadow-sm p-4 flex items-center justify-between transition-colors ${
-              sms_enabled ? "bg-blue-50 border-blue-200" : "bg-white border-gray-200"
-            }`}
-          >
+          <div className={`rounded-xl border shadow-sm p-4 flex items-center justify-between transition-colors ${
+            sms_enabled ? "bg-blue-50 border-blue-200" : "bg-white border-gray-200"
+          }`}>
             <div>
               <p className={`text-sm font-bold ${sms_enabled ? "text-blue-700" : "text-gray-800"}`}>
                 SMS Status
@@ -189,13 +189,12 @@ const Notifications = () => {
                 sms_enabled ? "bg-blue-600" : "bg-gray-300"
               }`}
             >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                  sms_enabled ? "translate-x-6" : "translate-x-1"
-                }`}
-              />
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                sms_enabled ? "translate-x-6" : "translate-x-1"
+              }`} />
             </button>
           </div>
+
           <Calendar
             smsHistory={smsLogs}
             selectedDate={selectedDate}
@@ -203,6 +202,7 @@ const Notifications = () => {
           />
         </div>
 
+        {/* ✅ FIX 1: Message column removed */}
         <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col w-full overflow-hidden h-[540px]">
           <div className="p-4 border-b border-gray-100 flex items-center gap-4 bg-white">
             <span className="font-bold text-gray-800 shrink-0">SMS History</span>
@@ -210,10 +210,10 @@ const Notifications = () => {
               <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search logs..."
+                placeholder="Search by status..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-blue-400 w-full transition-all"
+                className="pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-blue-400 w-full"
               />
             </div>
           </div>
@@ -225,51 +225,39 @@ const Notifications = () => {
                   <th className="px-5 py-3">Event</th>
                   <th className="px-5 py-3">Date</th>
                   <th className="px-5 py-3">Time</th>
-                  <th className="px-5 py-3">Message</th>
                   <th className="px-5 py-3 text-right">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredSms.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="text-center py-20 text-gray-400 italic">
+                    {/* ✅ FIX 4: colSpan 4, was 5 */}
+                    <td colSpan={4} className="text-center py-20 text-gray-400 italic">
                       No logs found
                     </td>
                   </tr>
                 ) : (
                   filteredSms.map((sms) => {
                     const isAlarm = sms.status === "Alarm";
-                    const isOpen = sms.status === "Opened" || sms.status === "OPEN";
-                    
-                    // Safe date display for the table
-                    const smsDateObj = new Date(sms.createdAt || sms.created_at);
-                    const isValid = !isNaN(smsDateObj.getTime());
-
+                    const isOpen  = sms.status === "Opened" || sms.status === "OPEN";
+                    const dateObj = new Date(sms.createdAt || sms.created_at);
+                    const isValid = !isNaN(dateObj.getTime());
                     return (
-                      <tr
-                        key={sms.id}
-                        className="border-b border-gray-50 hover:bg-gray-50 transition-colors"
-                      >
+                      <tr key={sms.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                         <td className="px-5 py-3">
-                          <span
-                            className={`font-bold uppercase ${
-                              isAlarm ? "text-red-600" : isOpen ? "text-green-700" : "text-slate-600"
-                            }`}
-                          >
+                          <span className={`font-bold uppercase ${
+                            isAlarm ? "text-red-600" : isOpen ? "text-green-700" : "text-slate-600"
+                          }`}>
                             {sms.status}
                           </span>
                         </td>
                         <td className="px-5 py-3 text-gray-500 whitespace-nowrap">
-                          {isValid ? smsDateObj.toLocaleDateString() : "N/A"}
+                          {isValid ? dateObj.toLocaleDateString() : "N/A"}
                         </td>
                         <td className="px-5 py-3 text-gray-500 whitespace-nowrap">
-                          {isValid ? smsDateObj.toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          }) : "N/A"}
-                        </td>
-                        <td className="px-5 py-3 italic text-gray-400 max-w-xs truncate">
-                          {sms.message}
+                          {isValid
+                            ? dateObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                            : "N/A"}
                         </td>
                         <td className="px-5 py-3 text-right">
                           <button
@@ -290,10 +278,7 @@ const Notifications = () => {
       </div>
 
       {showConfirm && (
-        <ClearSmsModal
-          onConfirm={handleClearAll}
-          onCancel={() => setShowConfirm(false)}
-        />
+        <ClearSmsModal onConfirm={handleClearAll} onCancel={() => setShowConfirm(false)} />
       )}
     </div>
   );

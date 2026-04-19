@@ -1,24 +1,133 @@
+/*
+  ═══════════════════════════════════════════════════════
+  src/components/Profile.jsx
+  ───────────────────────────────────────────────────────
+  CHANGES FROM ORIGINAL:
+  1. Added DeviceIdCard section — shows the user their
+     Device Setup ID with a QR code they can scan from
+     the ALRT_Setup_Portal so they never type the wrong ID.
+  2. Requires: npm install qrcode.react
+  ═══════════════════════════════════════════════════════
+*/
+
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { User, Mail, Camera, Save, X, Phone, AtSign, MapPin } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
+import {
+  User, Mail, Camera, Save, X, Phone,
+  AtSign, MapPin, Cpu, Copy, CheckCheck, Wifi,
+} from 'lucide-react';
 
+const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+// ── Device ID card with QR code ──────────────────────
+function DeviceIdCard() {
+  const userId  = localStorage.getItem('userId') || '';
+  const [copied, setCopied] = useState(false);
+
+  const qrValue = `alrt://setup?user_id=${userId}`;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(userId);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (!userId) return null;
+
+  return (
+    <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-4 space-y-3 mt-2">
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+          <Cpu size={16} className="text-blue-600" />
+        </div>
+        <div>
+          <p className="text-xs font-bold text-blue-900">Device Setup ID</p>
+          <p className="text-[11px] text-blue-500">Scan QR from the device portal — no typing needed</p>
+        </div>
+      </div>
+
+      {/* QR Code */}
+      <div className="flex flex-col items-center gap-2 bg-white border border-blue-100 rounded-xl p-4">
+        <QRCodeSVG
+          value={qrValue}
+          size={130}
+          bgColor="#ffffff"
+          fgColor="#1d4ed8"
+          level="H"
+          includeMargin={true}
+        />
+        <p className="text-[11px] text-gray-400 text-center">
+          Scan from <strong>ALRT_Setup_Portal</strong> page
+        </p>
+      </div>
+
+      {/* Manual fallback */}
+      <div>
+        <p className="text-[11px] text-blue-700 font-semibold mb-1">Or enter manually if QR fails:</p>
+        <div className="flex items-center justify-between bg-white border border-blue-200 rounded-lg px-3 py-2">
+          <span className="text-2xl font-black text-blue-700 tracking-widest">{userId}</span>
+          <button
+            onClick={handleCopy}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              copied
+                ? 'bg-green-100 text-green-700 border border-green-200'
+                : 'bg-blue-100 text-blue-700 border border-blue-200 hover:bg-blue-200'
+            }`}
+          >
+            {copied ? <><CheckCheck size={12} /> Copied!</> : <><Copy size={12} /> Copy</>}
+          </button>
+        </div>
+      </div>
+
+      {/* Steps */}
+      <ol className="space-y-1.5">
+        {[
+          'Power on your ALRT device',
+          'Connect phone to "ALRT_Setup_Portal" hotspot',
+          'Portal page opens — tap Scan QR Code',
+          'Point camera at the QR above — ID fills automatically',
+          'Enter your WiFi password and tap Save',
+        ].map((step, i) => (
+          <li key={i} className="flex items-start gap-2 text-[11px] text-blue-700">
+            <span className="w-4 h-4 rounded-full bg-blue-200 text-blue-800 font-bold flex items-center justify-center shrink-0 text-[9px] mt-0.5">
+              {i + 1}
+            </span>
+            {step}
+          </li>
+        ))}
+      </ol>
+
+      {/* Warning */}
+      <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+        <Wifi size={12} className="text-amber-600 shrink-0 mt-0.5" />
+        <p className="text-[11px] text-amber-700">
+          Keep this page open while setting up the device so you can scan easily.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Profile component ────────────────────────────
 export default function Profile({ onClose }) {
   const { user, setUser } = useAuth();
-  const [editing, setEditing]       = useState(false);
-  const [firstName, setFirstName]   = useState(user?.firstName  || '');
-  const [lastName, setLastName]     = useState(user?.lastName   || '');
+  const [editing,    setEditing]    = useState(false);
+  const [firstName,  setFirstName]  = useState(user?.firstName  || '');
+  const [lastName,   setLastName]   = useState(user?.lastName   || '');
   const [middleName, setMiddleName] = useState(user?.middleName || '');
-  const [name, setName]             = useState(user?.name       || '');
-  const [username, setUsername]     = useState(user?.username   || '');
-  const [email, setEmail]           = useState(user?.email      || '');
-  const [phone, setPhone]           = useState(user?.phone      || '');
-  const [address, setAddress]       = useState(user?.address    || '');
-  const [avatar, setAvatar]         = useState(user?.avatar     || null);
-  const [preview, setPreview]       = useState(user?.avatar     || null);
-  const [saving, setSaving]         = useState(false);
-  const [errors, setErrors]         = useState({});
-  const [error, setError]           = useState('');
-  const [success, setSuccess]       = useState('');
+  const [name,       setName]       = useState(user?.name       || '');
+  const [username,   setUsername]   = useState(user?.username   || '');
+  const [email,      setEmail]      = useState(user?.email      || '');
+  const [phone,      setPhone]      = useState(user?.phone      || '');
+  const [address,    setAddress]    = useState(user?.address    || '');
+  const [avatar,     setAvatar]     = useState(user?.avatar     || null);
+  const [preview,    setPreview]    = useState(user?.avatar     || null);
+  const [saving,     setSaving]     = useState(false);
+  const [errors,     setErrors]     = useState({});
+  const [error,      setError]      = useState('');
+  const [success,    setSuccess]    = useState('');
   const fileRef = useRef();
 
   function handleImageChange(e) {
@@ -30,30 +139,24 @@ export default function Profile({ onClose }) {
   }
 
   function validate() {
-    const newErrors = {};
-    if (!firstName.trim())  newErrors.firstName  = 'First name is required.';
-    if (!lastName.trim())   newErrors.lastName   = 'Last name is required.';
-    if (!username.trim())   newErrors.username   = 'Username is required.';
-    if (!email.trim())      newErrors.email      = 'Email is required.';
-    if (!phone.trim())      newErrors.phone      = 'Phone number is required.';
-    if (!address.trim())    newErrors.address    = 'Address is required.';
-    // middleName is optional — intentionally excluded
-    return newErrors;
+    const errs = {};
+    if (!firstName.trim()) errs.firstName = 'First name is required.';
+    if (!lastName.trim())  errs.lastName  = 'Last name is required.';
+    if (!username.trim())  errs.username  = 'Username is required.';
+    if (!email.trim())     errs.email     = 'Email is required.';
+    if (!phone.trim())     errs.phone     = 'Phone number is required.';
+    if (!address.trim())   errs.address   = 'Address is required.';
+    return errs;
   }
 
   async function handleSave() {
     const validationErrors = validate();
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
+    if (Object.keys(validationErrors).length > 0) { setErrors(validationErrors); return; }
     setErrors({});
-
     setSaving(true); setError(''); setSuccess('');
     try {
       const token = localStorage.getItem('token');
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
-      const res = await fetch(`${apiUrl}/api/auth/profile`, {
+      const res = await fetch(`${API}/api/auth/profile`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -67,7 +170,6 @@ export default function Profile({ onClose }) {
       if (!res.ok) { setError(data.message || 'Update failed'); return; }
 
       const u = data.user;
-
       const updated = {
         ...user,
         name:       `${firstName} ${lastName}`.trim() || name,
@@ -81,20 +183,9 @@ export default function Profile({ onClose }) {
         middleName: middleName   || null,
         address:    address      || null,
       };
-
       setUser(updated);
-
-      setFirstName(firstName);
-      setLastName(lastName);
-      setMiddleName(middleName);
-      setName(`${firstName} ${lastName}`.trim() || name);
-      setUsername(username);
-      setEmail(email);
-      setPhone(phone);
-      setAddress(address);
       setPreview(u.avatar || avatar || null);
       setAvatar(u.avatar  || avatar || null);
-
       setSuccess('Profile updated!');
       setEditing(false);
     } catch {
@@ -126,12 +217,20 @@ export default function Profile({ onClose }) {
     }`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4" onClick={e => e.stopPropagation()}>
-
-        {/* Header with avatar inside */}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
         <div className="h-36 bg-gradient-to-r from-slate-800 to-blue-700 relative rounded-t-xl flex items-end px-6 pb-4">
-          <button onClick={onClose} className="absolute top-3 right-3 w-7 h-7 bg-white/20 hover:bg-white/30 rounded-xl flex items-center justify-center transition-colors">
+          <button
+            onClick={onClose}
+            className="absolute top-3 right-3 w-7 h-7 bg-white/20 hover:bg-white/30 rounded-xl flex items-center justify-center transition-colors"
+          >
             <X size={14} className="text-white" />
           </button>
           <div className="relative">
@@ -145,7 +244,10 @@ export default function Profile({ onClose }) {
             </div>
             {editing && (
               <>
-                <button onClick={() => fileRef.current.click()} className="absolute bottom-0 right-0 w-6 h-6 bg-slate-800 hover:bg-blue-600 rounded-full flex items-center justify-center transition-colors">
+                <button
+                  onClick={() => fileRef.current.click()}
+                  className="absolute bottom-0 right-0 w-6 h-6 bg-slate-800 hover:bg-blue-600 rounded-full flex items-center justify-center transition-colors"
+                >
                   <Camera size={11} className="text-white" />
                 </button>
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
@@ -154,6 +256,7 @@ export default function Profile({ onClose }) {
           </div>
         </div>
 
+        {/* Body */}
         <div className="px-6 pb-6 max-h-[70vh] overflow-y-auto pt-4">
           <div className="space-y-3">
 
@@ -164,10 +267,8 @@ export default function Profile({ onClose }) {
                   <User size={11}/> First Name
                 </label>
                 {editing
-                  ? <>
-                      <input className={inputClass('firstName')} value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Juan" />
-                      {errors.firstName && <span className="text-red-500 text-xs">{errors.firstName}</span>}
-                    </>
+                  ? <><input className={inputClass('firstName')} value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Juan" />
+                      {errors.firstName && <span className="text-red-500 text-xs">{errors.firstName}</span>}</>
                   : <p className="text-sm text-slate-800 font-medium">{firstName || '—'}</p>
                 }
               </div>
@@ -176,15 +277,14 @@ export default function Profile({ onClose }) {
                   <User size={11}/> Last Name
                 </label>
                 {editing
-                  ? <>
-                      <input className={inputClass('lastName')} value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Dela Cruz" />
-                      {errors.lastName && <span className="text-red-500 text-xs">{errors.lastName}</span>}
-                    </>
+                  ? <><input className={inputClass('lastName')} value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Dela Cruz" />
+                      {errors.lastName && <span className="text-red-500 text-xs">{errors.lastName}</span>}</>
                   : <p className="text-sm text-slate-800 font-medium">{lastName || '—'}</p>
                 }
               </div>
             </div>
 
+            {/* Middle Name */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
                 <User size={11}/> Middle Name <span className="text-slate-300 normal-case font-normal">(optional)</span>
@@ -195,57 +295,56 @@ export default function Profile({ onClose }) {
               }
             </div>
 
+            {/* Username */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
                 <AtSign size={11}/> Username
               </label>
               {editing
-                ? <>
-                    <input className={inputClass('username')} value={username} onChange={e => setUsername(e.target.value)} placeholder="juandelacruz" />
-                    {errors.username && <span className="text-red-500 text-xs">{errors.username}</span>}
-                  </>
+                ? <><input className={inputClass('username')} value={username} onChange={e => setUsername(e.target.value)} placeholder="juandelacruz" />
+                    {errors.username && <span className="text-red-500 text-xs">{errors.username}</span>}</>
                 : <p className="text-sm text-slate-800 font-medium">{username || '—'}</p>
               }
             </div>
 
+            {/* Email */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
                 <Mail size={11}/> Email
               </label>
               {editing
-                ? <>
-                    <input type="email" className={inputClass('email')} value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
-                    {errors.email && <span className="text-red-500 text-xs">{errors.email}</span>}
-                  </>
+                ? <><input type="email" className={inputClass('email')} value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
+                    {errors.email && <span className="text-red-500 text-xs">{errors.email}</span>}</>
                 : <p className="text-sm text-slate-800 font-medium">{email || '—'}</p>
               }
             </div>
 
+            {/* Phone */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
                 <Phone size={11}/> Phone Number
               </label>
               {editing
-                ? <>
-                    <input className={inputClass('phone')} value={phone} onChange={e => setPhone(e.target.value)} placeholder="+639XXXXXXXXX" />
-                    {errors.phone && <span className="text-red-500 text-xs">{errors.phone}</span>}
-                  </>
+                ? <><input className={inputClass('phone')} value={phone} onChange={e => setPhone(e.target.value)} placeholder="+639XXXXXXXXX" />
+                    {errors.phone && <span className="text-red-500 text-xs">{errors.phone}</span>}</>
                 : <p className="text-sm text-slate-800 font-medium">{phone || '—'}</p>
               }
             </div>
 
+            {/* Address */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
                 <MapPin size={11}/> Address
               </label>
               {editing
-                ? <>
-                    <textarea className={`${inputClass('address')} resize-none`} value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Rizal St, Zamboanga City" rows={2} />
-                    {errors.address && <span className="text-red-500 text-xs">{errors.address}</span>}
-                  </>
+                ? <><textarea className={`${inputClass('address')} resize-none`} value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Rizal St, Zamboanga City" rows={2} />
+                    {errors.address && <span className="text-red-500 text-xs">{errors.address}</span>}</>
                 : <p className="text-sm text-slate-800 font-medium">{address || '—'}</p>
               }
             </div>
+
+            {/* ── Device Setup ID card — always visible ── */}
+            <DeviceIdCard />
 
           </div>
 

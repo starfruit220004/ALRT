@@ -1,19 +1,3 @@
-/*
-  ═══════════════════════════════════════════════════════
-  CHANGES FROM ORIGINAL:
-  1. This file already used Prisma correctly for most
-     routes. The only new fix here is the POST /sms-logs
-     route: the original tried to write a `message` field
-     that does NOT exist in the Prisma SmsLog schema,
-     causing a runtime error. The field is now omitted
-     from the create call. If you want to store message
-     text, add `message String?` to the SmsLog model in
-     schema.prisma and run `npx prisma migrate dev`.
-  2. Added explicit error logging for easier debugging
-     while the backend is running locally.
-  ═══════════════════════════════════════════════════════
-*/
-
 const express = require("express");
 const router  = express.Router();
 const prisma  = require("../config/prisma");
@@ -79,15 +63,6 @@ router.get("/sms-logs", verifyToken, async (req, res) => {
   }
 });
 
-// Called by ESP32 to save an SMS log entry.
-// ── FIX 1: Removed `message` from the create data — the
-//    SmsLog model in schema.prisma has no `message` column.
-//    The original code crashed with a Prisma validation error
-//    every time the ESP32 tried to save an SMS log, which is
-//    why the SMS history was always empty.
-//    To store message text: add `message String?` to SmsLog
-//    in schema.prisma, run `npx prisma migrate dev`, then
-//    uncomment the message line below.
 router.post("/sms-logs", async (req, res) => {
   try {
     const { user_id, status /*, message */ } = req.body;
