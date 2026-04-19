@@ -1,24 +1,3 @@
-/*
-  ═══════════════════════════════════════════════════════
-  CHANGES FROM ORIGINAL:
-  1. Duplicate logging fixed. The original MQTT handler
-     wrote to door_logs AND sms_logs, AND the /api/iot/door
-     HTTP route (iotController) did the exact same thing.
-     If both ran, every event was logged twice and socket
-     events fired twice. The MQTT handler is the correct
-     production path — the HTTP /api/iot/door route is now
-     only a fallback. The MQTT handler is kept as-is and
-     is the single source of truth for all log writes.
-  2. Added CORS origin support for hosted frontend. Set
-     FRONTEND_URL in your .env to your Vercel/Netlify URL.
-  3. NEW: Added isWithinSchedule() helper. The alarm now
-     only fires when the current server time falls within
-     the user's configured scheduleStart–scheduleEnd window.
-     Previously, alarmEnabled alone was the only gate —
-     the schedule was only used for the frontend UI badge.
-  ═══════════════════════════════════════════════════════
-*/
-
 require("dotenv").config();
 const express    = require("express");
 const cors       = require("cors");
@@ -31,11 +10,10 @@ const mqttClient = require("./config/mqtt");
 const app    = express();
 const server = http.createServer(app);
 
-// ── FIX 2: Allow both local dev and hosted frontend origin
+// ✅ FIX: Removed hardcoded Vercel URL — use FRONTEND_URL env var only
 const allowedOrigins = [
   process.env.FRONTEND_URL || "http://localhost:5173",
   "http://localhost:5173",
-  "https://alrt-black.vercel.app",  
 ];
 
 const io = new Server(server, {
@@ -72,22 +50,25 @@ cron.schedule("0 0 * * *", async () => {
   }
 });
 
-// ── FIX 3: Schedule enforcement helper
-// Returns true if the current server time is within [scheduleStart, scheduleEnd).
-// Handles overnight ranges (e.g. 22:00–06:00) correctly.
-// NOTE: Uses server local time. If your server runs in UTC but your users are
-// in UTC+8 (Philippines), "08:00" here means 08:00 UTC — 4 PM local.
-// To fix that, either run the server in PHT or store schedules in UTC.
+// ✅ FIX: isWithinSchedule now uses Philippine Time (UTC+8)
+// Render servers run in UTC — without this offset, "08:00" meant
+// 08:00 UTC = 4:00 PM Philippine time, causing alarms to always
+// be skipped during normal daytime hours.
 function isWithinSchedule(scheduleStart, scheduleEnd) {
-  if (!scheduleStart || !scheduleEnd) return true; // no schedule = always active
+  if (!scheduleStart || !scheduleEnd) return true;
+
+  // Convert current UTC time to Philippine time (UTC+8)
   const now = new Date();
-  const cur = now.getHours() * 60 + now.getMinutes();
+  const phTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  const cur = phTime.getUTCHours() * 60 + phTime.getUTCMinutes();
+
   const toMin = (t) => {
     const [h, m] = t.split(":").map(Number);
     return h * 60 + m;
   };
   const s = toMin(scheduleStart);
   const e = toMin(scheduleEnd);
+
   // Normal range (e.g. 08:00–17:00)
   if (s <= e) return cur >= s && cur < e;
   // Overnight range (e.g. 22:00–06:00)
@@ -104,9 +85,6 @@ mqttClient.on("connect", () => {
   });
 });
 
-// ── FIX 1: This is the SINGLE place door events are persisted.
-//    The /api/iot/door HTTP route (iotController) should NOT
-//    also write to door_logs — see iotController.js fix note.
 mqttClient.on("message", async (receivedTopic, message) => {
   if (!message) return;
   const payload = message.toString().replace(/[\x00-\x1F\x7F]/g, "").trim();
@@ -133,19 +111,16 @@ mqttClient.on("message", async (receivedTopic, message) => {
     if (!settings) return;
 
     if (payload === "OPEN" || payload === "Opened") {
-      // Write SMS log (status only — no message field in schema)
+      // Write SMS log
       const smsLog = await prisma.smsLog.create({ data: { status: payload, userId } });
       io.to(`user_${userId}`).emit("sms_update", smsLog);
 
-      // ── FIX 3: Gate the alarm on BOTH the master switch AND the schedule window.
-      //    Previously only settings.alarmEnabled was checked — the schedule was
-      //    enforced on the frontend only and had no effect on actual alarm firing.
+      // ✅ FIX: isWithinSchedule now uses Philippine Time (UTC+8)
       const scheduleActive = isWithinSchedule(settings.scheduleStart, settings.scheduleEnd);
 
       if (settings.alarmEnabled && scheduleActive) {
-        console.log(`[MQTT] Alarm triggered for user_${userId} — within schedule window`);
+        console.log(`[MQTT] Alarm triggered for user_${userId} — within schedule window (PHT)`);
 
-        // Write alarm log entry
         const alarmLog = await prisma.doorLog.create({ data: { status: "Alarm", userId } });
         io.to(`user_${userId}`).emit("door_update", alarmLog);
 
@@ -154,7 +129,7 @@ mqttClient.on("message", async (receivedTopic, message) => {
 
         io.to(`user_${userId}`).emit("trigger_alarm", { status: payload, user_id: userId });
       } else if (settings.alarmEnabled && !scheduleActive) {
-        console.log(`[MQTT] Alarm SKIPPED for user_${userId} — outside schedule window (${settings.scheduleStart}–${settings.scheduleEnd})`);
+        console.log(`[MQTT] Alarm SKIPPED for user_${userId} — outside schedule window (${settings.scheduleStart}–${settings.scheduleEnd}) PHT`);
       }
     }
   } catch (err) {
