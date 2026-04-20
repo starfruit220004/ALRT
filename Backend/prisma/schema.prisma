@@ -1,9 +1,28 @@
+// ═══════════════════════════════════════════════════════
+// schema.prisma
+// ───────────────────────────────────────────────────────
+// FIX: Added previewFeatures = ["driverAdapters"] to the
+// generator block.
+//
+// WHY THIS MATTERS:
+// Without this, Prisma completely ignores the adapter you
+// pass into `new PrismaClient({ adapter })` in prisma.js.
+// It silently falls back to its own internal pg connection,
+// bypassing your Pool config entirely. This means connection
+// pooling, SSL settings, and timeout configs in your Pool
+// are all ignored — causing instability on Render's free tier
+// where the DB connection limit is very low.
+// ═══════════════════════════════════════════════════════
+
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  // ✅ FIX: This line is REQUIRED for @prisma/adapter-pg to work.
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Alert {

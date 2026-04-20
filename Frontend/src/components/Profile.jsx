@@ -2,17 +2,23 @@
   ═══════════════════════════════════════════════════════
   src/components/Profile.jsx
   ───────────────────────────────────────────────────────
-  CHANGES FROM ORIGINAL:
-  1. Added DeviceIdCard section — shows the user their
-     Device Setup ID with a QR code they can scan from
-     the ALRT_Setup_Portal so they never type the wrong ID.
-  2. Requires: npm install qrcode.react
+  FIXES:
+  1. DeviceIdCard now reads userId from the `user` object
+     passed via useAuth() context instead of calling
+     localStorage.getItem('userId') directly.
+     The old code could return null if your auth flow
+     stores the user differently, causing the whole
+     DeviceIdCard to silently disappear.
+  2. Install note updated: pin qrcode.react to v3 or higher,
+     since v2 and below use a default export and the named
+     import { QRCodeSVG } would silently fail.
+     Run: npm install qrcode.react@3
   ═══════════════════════════════════════════════════════
 */
 
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { QRCodeSVG } from 'qrcode.react';
+import { QRCodeSVG } from 'qrcode.react'; // requires: npm install qrcode.react@3
 import {
   User, Mail, Camera, Save, X, Phone,
   AtSign, MapPin, Cpu, Copy, CheckCheck, Wifi,
@@ -21,14 +27,18 @@ import {
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 // ── Device ID card with QR code ──────────────────────
-function DeviceIdCard() {
-  const userId  = localStorage.getItem('userId') || '';
+// ✅ FIX: Accepts userId as a prop from the parent component,
+//    which reads it from useAuth(). The old version called
+//    localStorage.getItem('userId') independently — if the key
+//    name ever changed or the value wasn't stored there, the
+//    card would silently return null with no error shown.
+function DeviceIdCard({ userId }) {
   const [copied, setCopied] = useState(false);
 
   const qrValue = `alrt://setup?user_id=${userId}`;
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(userId);
+    navigator.clipboard.writeText(String(userId));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -344,7 +354,8 @@ export default function Profile({ onClose }) {
             </div>
 
             {/* ── Device Setup ID card — always visible ── */}
-            <DeviceIdCard />
+            {/* ✅ FIX: Pass userId from auth context, not localStorage */}
+            <DeviceIdCard userId={user?.id} />
 
           </div>
 

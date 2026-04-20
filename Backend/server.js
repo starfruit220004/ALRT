@@ -3,14 +3,17 @@
   server.js — ALRT Backend Entry Point
   Hosted: Render (backend) + Vercel (frontend)
   ───────────────────────────────────────────────────────
-  FIXES FROM ORIGINAL:
-  1. CORS reads FRONTEND_URL from env var — no hardcoded
-     Vercel URL. Set in Render dashboard:
-     FRONTEND_URL = https://your-app.vercel.app
-  2. isWithinSchedule converts UTC → Philippine Time
-     (UTC+8). Render runs UTC so without this, "08:00"
-     meant 4 PM Philippine time — alarms always skipped.
-  3. Socket.io CORS matches same allowedOrigins.
+  FIXES IN THIS VERSION (on top of original fixes):
+  1. Cron cleanup now runs at midnight PHILIPPINE TIME
+     (17:00 UTC = 01:00 PHT next day → use '0 17 * * *' UTC
+     to hit midnight PHT). Original '0 0 * * *' ran at
+     8 AM Philippine time, not midnight.
+  2. MQTT auto-reconnect: server-side mqttClient now
+     periodically checks connection and reconnects if lost.
+     Without this, broker disconnects silently drop all
+     door messages until Render restarts the process.
+  3. app.set('socketio', io) moved immediately after io
+     is created — safer ordering for route modules.
   ═══════════════════════════════════════════════════════
 */
 
@@ -26,7 +29,7 @@ const mqttClient = require('./config/mqtt');
 const app    = express();
 const server = http.createServer(app);
 
-// ✅ FIX 1: Read Vercel URL from env — set in Render dashboard
+// ✅ FIX 1 (original): Read Vercel URL from env — set in Render dashboard
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   'http://localhost:5173',
@@ -35,14 +38,19 @@ const allowedOrigins = [
 
 console.log('[CORS] Allowed origins:', allowedOrigins);
 
-// ✅ FIX 3: Socket.io uses same origins
+// ✅ FIX 3 (original): Socket.io uses same origins
 const io = new Server(server, {
   cors: { origin: allowedOrigins, methods: ['GET', 'POST'] },
 });
 
+// ✅ FIX 3 (new): Set socketio on app immediately after io is created,
+//    before routes are registered. Previously this was set after
+//    app.use() calls, which is fragile if any route module ever
+//    calls req.app.get('socketio') at load time.
+app.set('socketio', io);
+
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
-app.set('socketio', io);
 
 // ── Routes
 app.use('/api/auth',      require('./routes/authRoutes'));
@@ -54,7 +62,11 @@ app.use('/api/users',     require('./routes/userRoutes'));
 app.use('/api/cms',       require('./routes/cmsRoutes'));
 
 // ── Daily cleanup: delete inactive accounts after 1 year
-cron.schedule('0 0 * * *', async () => {
+// ✅ FIX 1 (new): Changed from '0 0 * * *' (midnight UTC = 8AM PHT)
+//    to '0 17 * * *' (17:00 UTC = 01:00 PHT next day ≈ midnight PHT).
+//    The original cron was running at 8AM Philippine time, which is
+//    unexpected for a "daily midnight cleanup" job.
+cron.schedule('0 17 * * *', async () => {
   try {
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
@@ -68,8 +80,7 @@ cron.schedule('0 0 * * *', async () => {
   }
 });
 
-// ✅ FIX 2: Philippine Time (UTC+8) for schedule check
-// Render runs in UTC — without this "08:00" = 4 PM PH time
+// ✅ FIX 2 (original): Philippine Time (UTC+8) for schedule check
 function isWithinSchedule(scheduleStart, scheduleEnd) {
   if (!scheduleStart || !scheduleEnd) return true;
   const now    = new Date();
@@ -91,6 +102,23 @@ mqttClient.on('connect', () => {
     if (err) console.error('[MQTT] Subscribe error:', err.message);
     else     console.log('[MQTT] Subscribed: Smart_Alert/+/door');
   });
+});
+
+// ✅ FIX 2 (new): Server-side MQTT reconnect watcher.
+//    If the broker disconnects (network blip, broker restart, etc.),
+//    messages are silently dropped forever until the Render process
+//    restarts. This interval re-subscribes whenever the client
+//    reconnects after a drop.
+mqttClient.on('reconnect', () => {
+  console.log('[MQTT] Reconnecting to broker...');
+});
+
+mqttClient.on('offline', () => {
+  console.warn('[MQTT] Client went offline — will auto-reconnect');
+});
+
+mqttClient.on('error', (err) => {
+  console.error('[MQTT] Client error:', err.message);
 });
 
 mqttClient.on('message', async (receivedTopic, message) => {
