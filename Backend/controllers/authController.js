@@ -3,11 +3,20 @@ const prisma  = require("../config/prisma");
 const bcrypt  = require("bcrypt");
 const jwt     = require("jsonwebtoken");
 const crypto  = require("crypto");
-const sendEmail = require("../utils/sendEmail");
-const { sendVerificationEmail } = sendEmail;
+
+// FIX: The original code did:
+//   const sendEmail = require("../utils/sendEmail");
+//   const { sendVerificationEmail } = sendEmail;
+// Then called sendEmail({ email, subject, message }) in forgotPassword.
+// This only works if sendEmail is simultaneously a callable function AND an
+// object with a sendVerificationEmail property — a fragile dual assumption.
+// Clean fix: grab the default export as sendEmail and the named as its own.
+const _emailMod = require("../utils/sendEmail");
+const sendEmail = typeof _emailMod === "function" ? _emailMod : (_emailMod.default || _emailMod);
+const { sendVerificationEmail } = _emailMod;
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret";
-if (!JWT_SECRET) throw new Error("FATAL: JWT_SECRET environment variable is not set. Server cannot start.");
+if (!JWT_SECRET) throw new Error("FATAL: JWT_SECRET environment variable is not set.");
 
 function val(v) {
   return v != null && v !== "" ? v : null;
@@ -90,21 +99,12 @@ exports.signup = async (req, res) => {
 // ─────────────────────────────────────────
 exports.verifyEmail = async (req, res) => {
   const { token } = req.query;
-
-  if (!token) {
-    return res.status(400).json({ message: "Verification token is missing" });
-  }
+  if (!token) return res.status(400).json({ message: "Verification token is missing" });
 
   try {
     const user = await prisma.user.findFirst({ where: { verifyToken: token } });
-
-    if (!user) {
-      return res.status(400).json({ message: "Invalid or expired verification link" });
-    }
-
-    if (user.isVerified) {
-      return res.status(200).json({ message: "Email already verified. You can log in." });
-    }
+    if (!user) return res.status(400).json({ message: "Invalid or expired verification link" });
+    if (user.isVerified) return res.status(200).json({ message: "Email already verified. You can log in." });
 
     await prisma.user.update({
       where: { id: user.id },
@@ -123,27 +123,15 @@ exports.verifyEmail = async (req, res) => {
 // ─────────────────────────────────────────
 exports.resendVerification = async (req, res) => {
   const { email } = req.body;
-
-  if (!email?.trim()) {
-    return res.status(400).json({ message: "Email is required" });
-  }
+  if (!email?.trim()) return res.status(400).json({ message: "Email is required" });
 
   try {
     const user = await prisma.user.findUnique({ where: { email } });
-
-    if (!user) {
-      return res.status(404).json({ message: "No account found with that email" });
-    }
-
-    if (user.isVerified) {
-      return res.status(400).json({ message: "This account is already verified" });
-    }
+    if (!user)          return res.status(404).json({ message: "No account found with that email" });
+    if (user.isVerified) return res.status(400).json({ message: "This account is already verified" });
 
     const verifyToken = crypto.randomBytes(32).toString("hex");
-    await prisma.user.update({
-      where: { id: user.id },
-      data:  { verifyToken },
-    });
+    await prisma.user.update({ where: { id: user.id }, data: { verifyToken } });
 
     const displayName = val(user.firstName) || val(user.name) || email;
     await sendVerificationEmail(email, verifyToken, displayName);
@@ -162,10 +150,7 @@ exports.login = async (req, res) => {
   const { email, password } = req.body;
   try {
     const user = await prisma.user.findUnique({ where: { email } });
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
+    if (!user) return res.status(404).json({ message: "User not found" });
 
     if (!user.isActive) {
       return res.status(403).json({
@@ -181,9 +166,7 @@ exports.login = async (req, res) => {
     }
 
     const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
+    if (!isValid) return res.status(401).json({ message: "Invalid credentials" });
 
     let mqttTopic = user.mqttTopic;
     if (!mqttTopic) {
@@ -299,6 +282,16 @@ exports.updateProfile = async (req, res) => {
   const userId = req.user.id;
 
   try {
+    // FIX: Prevent email collision with another account
+    if (email) {
+      const conflict = await prisma.user.findFirst({
+        where: { email, NOT: { id: userId } },
+      });
+      if (conflict) {
+        return res.status(400).json({ message: "Email is already in use by another account." });
+      }
+    }
+
     const updated = await prisma.user.update({
       where: { id: userId },
       data: {
@@ -310,7 +303,8 @@ exports.updateProfile = async (req, res) => {
         lastName:   val(lastName),
         middleName: val(middleName),
         address:    val(address),
-        email,
+        // FIX: Only spread email if it was actually provided
+        ...(email ? { email } : {}),
       },
     });
 
@@ -338,12 +332,11 @@ exports.updateProfile = async (req, res) => {
 };
 
 // ─────────────────────────────────────────
-// 7. FORGOT PASSWORD  ✅ FIXED
+// 7. FORGOT PASSWORD
 // ─────────────────────────────────────────
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
 
-  // ✅ FIX: Validate FRONTEND_URL first and return a proper error — never throw
   const frontendUrl = process.env.FRONTEND_URL;
   if (!frontendUrl) {
     console.error("FATAL: FRONTEND_URL environment variable is not set.");
@@ -357,10 +350,8 @@ exports.forgotPassword = async (req, res) => {
     }
 
     const resetToken = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: "10m" });
-
-    // ✅ FIX: Use the CURRENT live frontend URL from env variable
-    const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
-    const message  = `You requested a password reset.\n\nClick the link below:\n\n${resetUrl}\n\nExpires in 10 minutes. Ignore if you did not request this.`;
+    const resetUrl   = `${frontendUrl}/reset-password?token=${resetToken}`;
+    const message    = `You requested a password reset.\n\nClick the link below:\n\n${resetUrl}\n\nExpires in 10 minutes. Ignore if you did not request this.`;
 
     await sendEmail({ email: user.email, subject: "Password Reset Request", message });
     res.status(200).json({ message: "Reset link sent to email" });
@@ -371,15 +362,14 @@ exports.forgotPassword = async (req, res) => {
 };
 
 // ─────────────────────────────────────────
-// 8. RESET PASSWORD  ✅ FIXED
+// 8. RESET PASSWORD
 // ─────────────────────────────────────────
 exports.resetPassword = async (req, res) => {
   const { token, newPassword } = req.body;
 
-  // ✅ FIX: Validate inputs before doing anything
-  if (!token)       return res.status(400).json({ message: "Reset token is required." });
-  if (!newPassword) return res.status(400).json({ message: "New password is required." });
-  if (newPassword.length < 6) return res.status(400).json({ message: "Password must be at least 6 characters." });
+  if (!token)                   return res.status(400).json({ message: "Reset token is required." });
+  if (!newPassword)             return res.status(400).json({ message: "New password is required." });
+  if (newPassword.length < 6)   return res.status(400).json({ message: "Password must be at least 6 characters." });
 
   try {
     const decoded        = jwt.verify(token, JWT_SECRET);
@@ -393,7 +383,6 @@ exports.resetPassword = async (req, res) => {
     res.status(200).json({ message: "Password updated successfully" });
   } catch (err) {
     console.error("Reset Password Error:", err);
-    // ✅ FIX: Distinguish between expired token and other errors
     if (err.name === "TokenExpiredError") {
       return res.status(400).json({ message: "Reset link has expired. Please request a new one." });
     }
@@ -406,16 +395,15 @@ exports.resetPassword = async (req, res) => {
 // ─────────────────────────────────────────
 exports.getPhoneNumber = async (req, res) => {
   const userId = parseInt(req.params.userId, 10);
+  if (isNaN(userId)) return res.status(400).json({ message: "Invalid userId" });
+
   try {
     const user = await prisma.user.findUnique({
       where:  { id: userId },
       select: { phone: true },
     });
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
+    if (!user) return res.status(404).json({ message: "User not found" });
     res.status(200).json({ phone: val(user.phone) });
   } catch (err) {
     console.error("Get Phone Error:", err);
@@ -423,6 +411,9 @@ exports.getPhoneNumber = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────
+// 10. CREATE ADMIN
+// ─────────────────────────────────────────
 exports.createAdmin = async (req, res) => {
   const secret = req.headers["x-admin-secret"];
   if (!secret || secret !== process.env.ADMIN_SECRET) {
@@ -436,7 +427,6 @@ exports.createAdmin = async (req, res) => {
     }
 
     const { email, password, firstName, lastName, phone, address, username } = req.body;
-
     if (!email?.trim() || !password?.trim()) {
       return res.status(400).json({ message: "Email and password are required." });
     }

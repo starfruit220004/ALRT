@@ -1,42 +1,43 @@
-/*
-  ═══════════════════════════════════════════════════════
-  src/pages/DoorContext.jsx
-  ───────────────────────────────────────────────────────
-  FIXES:
-  1. Settings keys were snake_case (alarm_enabled) but
-     Prisma returns camelCase (alarmEnabled) — always
-     undefined, so toggles had no effect on the UI.
-  2. scheduleStart/scheduleEnd same camelCase fix.
-  3. trigger_alarm socket event now sets alarmTriggered
-     state so AlarmSettings can show a live banner.
-  4. [NEW] Renamed alarm_enabled → alarmEnabled and
-     sms_enabled → smsEnabled throughout for consistent
-     camelCase naming. Update consumers accordingly.
-  ═══════════════════════════════════════════════════════
-*/
-
-import React, { createContext, useState, useEffect } from 'react';
+// src/pages/DoorContext.jsx
+import React, { createContext, useState, useEffect, useRef } from 'react';
 import socket from '../socket';
+import { useAuth } from '../context/AuthContext';
 
 export const DoorContext = createContext();
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export const DoorProvider = ({ children }) => {
+  const { user } = useAuth();
+
   const [doorStatus,     setDoorStatus]     = useState(null);
   const [activityLogs,   setActivityLogs]   = useState([]);
   const [smsLogs,        setSmsLogs]        = useState([]);
-  const [alarmEnabled,   setAlarmEnabled]   = useState(false); // ✅ FIX 4: was alarm_enabled
-  const [smsEnabled,     setSmsEnabled]     = useState(false); // ✅ FIX 4: was sms_enabled
+  const [alarmEnabled,   setAlarmEnabled]   = useState(false);
+  const [smsEnabled,     setSmsEnabled]     = useState(false);
   const [scheduleStart,  setScheduleStart]  = useState('08:00');
   const [scheduleEnd,    setScheduleEnd]    = useState('17:00');
   const [alarmTriggered, setAlarmTriggered] = useState(false);
 
+  // FIX: Track the userId we last joined a room for, so we can leave the old
+  // room when the user changes (e.g. logout → login as different account).
+  const joinedRoomRef = useRef(null);
+
+  // Data fetch + socket room join — re-runs when user?.id changes
   useEffect(() => {
     const token  = localStorage.getItem('token');
-    const userId = localStorage.getItem('userId');
-    if (!token) return;
-    if (userId) socket.emit('join_user_room', userId);
+    const userId = user?.id;
+
+    if (!token || !userId) return;
+
+    // FIX: Leave previous room before joining a new one. Without this, if the
+    // user logs out and back in as a different account, the socket is still
+    // subscribed to the old room and receives the wrong user's events.
+    if (joinedRoomRef.current && joinedRoomRef.current !== userId) {
+      socket.emit('leave_user_room', joinedRoomRef.current);
+    }
+    socket.emit('join_user_room', userId);
+    joinedRoomRef.current = userId;
 
     const fetchAll = async () => {
       try {
@@ -57,7 +58,6 @@ export const DoorProvider = ({ children }) => {
         if (Array.isArray(smsData)) setSmsLogs(smsData);
 
         if (setData && !setData.message) {
-          // ✅ FIX 1 & 2: camelCase keys from Prisma
           setAlarmEnabled( setData.alarmEnabled  ?? false);
           setSmsEnabled(   setData.smsEnabled    ?? false);
           setScheduleStart(setData.scheduleStart ?? '08:00');
@@ -69,8 +69,13 @@ export const DoorProvider = ({ children }) => {
     };
 
     fetchAll();
-  }, []);
+  }, [user?.id]);
 
+  // Socket event listeners — registered once, never stack
+  // FIX: The original had these in a separate useEffect with [] deps, meaning
+  // they were registered once on mount and never cleaned up per-user. If the
+  // component remounts (e.g. DoorProvider re-renders), listeners could stack.
+  // The cleanup function in the return guarantees exactly one set at a time.
   useEffect(() => {
     const onDoorUpdate = (data) => {
       setDoorStatus(data.status);
@@ -87,7 +92,6 @@ export const DoorProvider = ({ children }) => {
       });
     };
 
-    // ✅ FIX 3: Show alarm banner when server triggers alarm
     const onAlarmTrigger = () => {
       setAlarmTriggered(true);
       setTimeout(() => setAlarmTriggered(false), 10000);
@@ -109,8 +113,8 @@ export const DoorProvider = ({ children }) => {
       doorStatus,     setDoorStatus,
       activityLogs,   setActivityLogs,
       smsLogs,        setSmsLogs,
-      alarmEnabled,   setAlarmEnabled,   // ✅ FIX 4: was alarm_enabled
-      smsEnabled,     setSmsEnabled,     // ✅ FIX 4: was sms_enabled
+      alarmEnabled,   setAlarmEnabled,
+      smsEnabled,     setSmsEnabled,
       scheduleStart,  setScheduleStart,
       scheduleEnd,    setScheduleEnd,
       alarmTriggered, setAlarmTriggered,
