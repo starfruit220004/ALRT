@@ -11,6 +11,8 @@ export function AuthProvider({ children }) {
     const role       = localStorage.getItem("role");
     const name       = localStorage.getItem("name");
     const email      = localStorage.getItem("email");
+    // ✅ FIX: Use null coalescing on getItem directly so that stored ""
+    //         round-trips back as null, consistent with how setUser saves them.
     const avatar     = localStorage.getItem("avatar")     || null;
     const userId     = localStorage.getItem("userId")     || null;
     const mqttTopic  = localStorage.getItem("mqttTopic")  || null;
@@ -37,27 +39,34 @@ export function AuthProvider({ children }) {
     // Normalise: accept either userData.id or userData.userId
     const userId = userData.userId || userData.id || "";
 
-    const normalized = {
-      ...userData,
-      id:     userId,
-      userId: userId,
-    };
+    // ✅ FIX: Merge with existing state so that partial updates (e.g. only
+    //         updating avatar) don't silently wipe fields like phone or address
+    //         that were not included in the incoming userData object.
+    setUserState((prev) => {
+      const merged = {
+        ...(prev ?? {}),
+        ...userData,
+        id:     userId,
+        userId: userId,
+      };
+      return merged;
+    });
 
-    setUserState(normalized);
-
-    localStorage.setItem("token",      normalized.token      ?? "");
-    localStorage.setItem("role",       normalized.role       ?? "");
-    localStorage.setItem("name",       normalized.name       ?? "");
-    localStorage.setItem("email",      normalized.email      ?? "");
-    localStorage.setItem("avatar",     normalized.avatar     ?? "");
+    // ✅ FIX: Store null as "" in localStorage so the || null read on boot
+    //         consistently produces null for unset fields (no stale values).
+    localStorage.setItem("token",      userData.token      ?? "");
+    localStorage.setItem("role",       userData.role       ?? "");
+    localStorage.setItem("name",       userData.name       ?? "");
+    localStorage.setItem("email",      userData.email      ?? "");
+    localStorage.setItem("avatar",     userData.avatar     ?? "");
     localStorage.setItem("userId",     userId);
-    localStorage.setItem("mqttTopic",  normalized.mqttTopic  ?? "");
-    localStorage.setItem("phone",      normalized.phone      ?? "");
-    localStorage.setItem("username",   normalized.username   ?? "");
-    localStorage.setItem("firstName",  normalized.firstName  ?? "");
-    localStorage.setItem("lastName",   normalized.lastName   ?? "");
-    localStorage.setItem("middleName", normalized.middleName ?? "");
-    localStorage.setItem("address",    normalized.address    ?? "");
+    localStorage.setItem("mqttTopic",  userData.mqttTopic  ?? "");
+    localStorage.setItem("phone",      userData.phone      ?? "");
+    localStorage.setItem("username",   userData.username   ?? "");
+    localStorage.setItem("firstName",  userData.firstName  ?? "");
+    localStorage.setItem("lastName",   userData.lastName   ?? "");
+    localStorage.setItem("middleName", userData.middleName ?? "");
+    localStorage.setItem("address",    userData.address    ?? "");
   }
 
   function logout() {

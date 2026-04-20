@@ -423,11 +423,6 @@ exports.getPhoneNumber = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────
-// 10. CREATE ADMIN (one-time, protected)
-//     POST /api/auth/create-admin
-//     Requires: ADMIN_SECRET header matching process.env.ADMIN_SECRET
-// ─────────────────────────────────────────
 exports.createAdmin = async (req, res) => {
   const secret = req.headers["x-admin-secret"];
   if (!secret || secret !== process.env.ADMIN_SECRET) {

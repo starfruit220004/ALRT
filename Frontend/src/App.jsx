@@ -68,41 +68,62 @@ function Layout() {
   const isLanding   = location.pathname === "/";
   const showSidebar = !isAuthPage && !isAdminPage && !isLanding;
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {showSidebar && <Sidebar onProfileClick={() => setShowProfile(true)} />}
-
-      <DoorProvider>
-        <main className={`flex-1 overflow-auto ${showSidebar ? "md:p-6" : ""}`}>
+  // ✅ FIX: Auth/landing/admin pages don't need the DoorProvider at all.
+  //         Render them outside it to avoid unnecessary socket connections
+  //         and API calls when the user is unauthenticated.
+  if (isAuthPage || isLanding) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex">
+        <main className="flex-1 overflow-auto">
           <Routes>
-            {/* Landing */}
-            <Route path="/"                element={<LandingPage />} />
-
-            {/* Auth */}
-            <Route path="/login"           element={<Login />} />
-            <Route path="/signup"          element={<Signup />} />
-            <Route path="/forgot"          element={<ForgotPassword />} />
-            <Route path="/reset-password"  element={<ResetPassword />} />
-            <Route path="/verify-email"    element={<VerifyEmail />} />
-
-            {/* User routes */}
-            <Route path="/dashboard"       element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/logs"            element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
-            <Route path="/alarm"           element={<ProtectedRoute><AlarmSetting /></ProtectedRoute>} />
-            <Route path="/notifications"   element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-            <Route path="/reports"         element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-
-            {/* Admin route */}
-            <Route path="/admin"           element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-
-            {/* Catch-all */}
-            <Route path="*"                element={<Navigate to="/" replace />} />
+            <Route path="/"               element={<LandingPage />} />
+            <Route path="/login"          element={<Login />} />
+            <Route path="/signup"         element={<Signup />} />
+            <Route path="/forgot"         element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/verify-email"   element={<VerifyEmail />} />
+            <Route path="*"               element={<Navigate to="/" replace />} />
           </Routes>
         </main>
-      </DoorProvider>
+      </div>
+    );
+  }
 
-      {showProfile && <Profile onClose={() => setShowProfile(false)} />}
-    </div>
+  if (isAdminPage) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex">
+        <main className="flex-1 overflow-auto">
+          <Routes>
+            <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+            <Route path="*"      element={<Navigate to="/admin" replace />} />
+          </Routes>
+        </main>
+      </div>
+    );
+  }
+
+  // ✅ FIX: DoorProvider now wraps Sidebar, main content, AND Profile so all
+  //         three can safely consume DoorContext without getting undefined.
+  return (
+    <DoorProvider>
+      <div className="min-h-screen bg-gray-50 flex">
+        {showSidebar && <Sidebar onProfileClick={() => setShowProfile(true)} />}
+
+        <main className="flex-1 overflow-auto md:p-6">
+          <Routes>
+            <Route path="/dashboard"     element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/logs"          element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
+            <Route path="/alarm"         element={<ProtectedRoute><AlarmSetting /></ProtectedRoute>} />
+            <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+            <Route path="/reports"       element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+            <Route path="*"              element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </main>
+
+        {/* ✅ FIX: Profile is now inside DoorProvider so it can use DoorContext */}
+        {showProfile && <Profile onClose={() => setShowProfile(false)} />}
+      </div>
+    </DoorProvider>
   );
 }
 

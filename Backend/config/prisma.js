@@ -1,15 +1,3 @@
-/*
-  ═══════════════════════════════════════════════════════
-  config/prisma.js
-  ───────────────────────────────────────────────────────
-  FIXES:
-  1. Added graceful shutdown — pool.end() on SIGINT/SIGTERM
-     to prevent connection leaks on Render restarts.
-  2. NOTE: schema.prisma MUST have previewFeatures = ["driverAdapters"]
-     in the generator block, or this adapter is silently ignored.
-  ═══════════════════════════════════════════════════════
-*/
-
 const { Pool }      = require('pg');
 const { PrismaPg }  = require('@prisma/adapter-pg');
 const { PrismaClient } = require('@prisma/client');
@@ -30,9 +18,6 @@ const prisma = new PrismaClient({
     : ['warn', 'error'],
 });
 
-// ✅ FIX: Graceful shutdown — close pool on process exit
-//    Without this, Render restarts leave dangling pg connections
-//    that count against your connection limit (especially on free tier).
 async function shutdown() {
   console.log('[Prisma] Disconnecting...');
   await prisma.$disconnect();

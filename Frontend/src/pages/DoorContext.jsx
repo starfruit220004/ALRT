@@ -2,13 +2,16 @@
   ═══════════════════════════════════════════════════════
   src/pages/DoorContext.jsx
   ───────────────────────────────────────────────────────
-  FIXES FROM ORIGINAL:
+  FIXES:
   1. Settings keys were snake_case (alarm_enabled) but
      Prisma returns camelCase (alarmEnabled) — always
      undefined, so toggles had no effect on the UI.
   2. scheduleStart/scheduleEnd same camelCase fix.
   3. trigger_alarm socket event now sets alarmTriggered
      state so AlarmSettings can show a live banner.
+  4. [NEW] Renamed alarm_enabled → alarmEnabled and
+     sms_enabled → smsEnabled throughout for consistent
+     camelCase naming. Update consumers accordingly.
   ═══════════════════════════════════════════════════════
 */
 
@@ -23,8 +26,8 @@ export const DoorProvider = ({ children }) => {
   const [doorStatus,     setDoorStatus]     = useState(null);
   const [activityLogs,   setActivityLogs]   = useState([]);
   const [smsLogs,        setSmsLogs]        = useState([]);
-  const [alarm_enabled,  setAlarmEnabled]   = useState(false);
-  const [sms_enabled,    setSmsEnabled]     = useState(false);
+  const [alarmEnabled,   setAlarmEnabled]   = useState(false); // ✅ FIX 4: was alarm_enabled
+  const [smsEnabled,     setSmsEnabled]     = useState(false); // ✅ FIX 4: was sms_enabled
   const [scheduleStart,  setScheduleStart]  = useState('08:00');
   const [scheduleEnd,    setScheduleEnd]    = useState('17:00');
   const [alarmTriggered, setAlarmTriggered] = useState(false);
@@ -106,8 +109,8 @@ export const DoorProvider = ({ children }) => {
       doorStatus,     setDoorStatus,
       activityLogs,   setActivityLogs,
       smsLogs,        setSmsLogs,
-      alarm_enabled,  setAlarmEnabled,
-      sms_enabled,    setSmsEnabled,
+      alarmEnabled,   setAlarmEnabled,   // ✅ FIX 4: was alarm_enabled
+      smsEnabled,     setSmsEnabled,     // ✅ FIX 4: was sms_enabled
       scheduleStart,  setScheduleStart,
       scheduleEnd,    setScheduleEnd,
       alarmTriggered, setAlarmTriggered,
