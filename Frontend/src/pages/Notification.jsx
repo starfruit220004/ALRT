@@ -106,7 +106,6 @@ const Notifications = () => {
     const d       = new Date(s.createdAt || s.created_at);
     const logDate = !isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : "";
     const matchesDate   = selectedDate ? logDate === selectedDate : true;
-    // ✅ FIX 2: Only search status — message is always empty
     const matchesSearch = (s.status || "").toLowerCase().includes(search.toLowerCase());
     return matchesDate && matchesSearch;
   });
@@ -121,6 +120,7 @@ const Notifications = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        // ✅ "value" matches toggleSMS controller: const { value } = req.body
         body: JSON.stringify({ value: newValue }),
       });
     } catch (err) {
@@ -202,7 +202,6 @@ const Notifications = () => {
           />
         </div>
 
-        {/* ✅ FIX 1: Message column removed */}
         <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col w-full overflow-hidden h-[540px]">
           <div className="p-4 border-b border-gray-100 flex items-center gap-4 bg-white">
             <span className="font-bold text-gray-800 shrink-0">SMS History</span>
@@ -231,7 +230,6 @@ const Notifications = () => {
               <tbody>
                 {filteredSms.length === 0 ? (
                   <tr>
-                    {/* ✅ FIX 4: colSpan 4, was 5 */}
                     <td colSpan={4} className="text-center py-20 text-gray-400 italic">
                       No logs found
                     </td>

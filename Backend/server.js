@@ -80,11 +80,6 @@ mqttClient.on('reconnect', () => console.log('[MQTT] Reconnecting to broker...')
 mqttClient.on('offline',   () => console.warn('[MQTT] Client went offline — will auto-reconnect'));
 mqttClient.on('error',     (err) => console.error('[MQTT] Client error:', err.message));
 
-// FIX: Re-subscribe after a reconnect. The 'connect' event fires on both
-// initial connect and every reconnect, so the subscription block inside
-// 'connect' already handles re-subscribing automatically via PubSubClient.
-// No extra watcher needed — PubSubClient handles reconnect internally.
-
 mqttClient.on('message', async (receivedTopic, message) => {
   if (!message) return;
   const payload = message.toString().replace(/[\x00-\x1F\x7F]/g, '').trim();
@@ -111,8 +106,11 @@ mqttClient.on('message', async (receivedTopic, message) => {
     if (!settings) return;
 
     if (payload === 'OPEN' || payload === 'Opened') {
-      const smsLog = await prisma.smsLog.create({ data: { status: payload, userId } });
-      io.to(`user_${userId}`).emit('sms_update', smsLog);
+      // ✅ FIX: Only create SMS log if smsEnabled is true
+      if (settings.smsEnabled) {
+        const smsLog = await prisma.smsLog.create({ data: { status: payload, userId } });
+        io.to(`user_${userId}`).emit('sms_update', smsLog);
+      }
 
       const scheduleActive = isWithinSchedule(settings.scheduleStart, settings.scheduleEnd);
 
@@ -120,8 +118,13 @@ mqttClient.on('message', async (receivedTopic, message) => {
         console.log(`[MQTT] Alarm triggered for user_${userId} (within schedule PHT)`);
         const alarmDoor = await prisma.doorLog.create({ data: { status: 'Alarm', userId } });
         io.to(`user_${userId}`).emit('door_update', alarmDoor);
-        const alarmSms = await prisma.smsLog.create({ data: { status: 'Alarm', userId } });
-        io.to(`user_${userId}`).emit('sms_update', alarmSms);
+
+        // ✅ FIX: Only create alarm SMS log if smsEnabled is true
+        if (settings.smsEnabled) {
+          const alarmSms = await prisma.smsLog.create({ data: { status: 'Alarm', userId } });
+          io.to(`user_${userId}`).emit('sms_update', alarmSms);
+        }
+
         io.to(`user_${userId}`).emit('trigger_alarm', { status: payload, user_id: userId });
       } else if (settings.alarmEnabled && !scheduleActive) {
         console.log(`[MQTT] Alarm SKIPPED for user_${userId} — outside schedule (${settings.scheduleStart}–${settings.scheduleEnd} PHT)`);
@@ -141,7 +144,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // FIX: Leave room on disconnect to clean up socket state
   socket.on('disconnect', () => {
     console.log(`[Socket] Client disconnected: ${socket.id}`);
   });
