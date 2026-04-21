@@ -3,8 +3,11 @@ const { PrismaPg }  = require('@prisma/adapter-pg');
 const { PrismaClient } = require('@prisma/client');
 
 // 1. Setup the connection pool using your environment variable
+const isProduction = process.env.NODE_ENV === 'production';
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  ssl: isProduction ? { rejectUnauthorized: false } : false,
+  max: 10, // Limit connections for Render's free tier
 });
 
 // 2. Initialize the adapter

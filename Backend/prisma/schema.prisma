@@ -21,7 +21,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "smart-alert-db"
 }
 
 model Alert {
