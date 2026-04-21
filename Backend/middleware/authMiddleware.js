@@ -1,22 +1,5 @@
-/*
-  ═══════════════════════════════════════════════════════
-  config/authMiddleware.js
-  ───────────────────────────────────────────────────────
-  FIXES:
-  1. CRITICAL SECURITY FIX: App now crashes on startup if
-     JWT_SECRET env var is missing, instead of silently
-     falling back to the literal string "secret".
-     Anyone who reads your source code could forge admin
-     tokens with that fallback. Never use a hardcoded default.
-  ═══════════════════════════════════════════════════════
-*/
-
 const jwt = require('jsonwebtoken');
 
-// ✅ FIX: Crash immediately if JWT_SECRET is not set.
-//    A missing secret is a critical misconfiguration —
-//    failing loudly at startup is far safer than silently
-//    signing tokens with the string "secret".
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   console.error('[FATAL] JWT_SECRET environment variable is not set. Refusing to start.');

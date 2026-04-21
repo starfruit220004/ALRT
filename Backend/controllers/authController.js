@@ -4,13 +4,6 @@ const bcrypt  = require("bcrypt");
 const jwt     = require("jsonwebtoken");
 const crypto  = require("crypto");
 
-// FIX: The original code did:
-//   const sendEmail = require("../utils/sendEmail");
-//   const { sendVerificationEmail } = sendEmail;
-// Then called sendEmail({ email, subject, message }) in forgotPassword.
-// This only works if sendEmail is simultaneously a callable function AND an
-// object with a sendVerificationEmail property — a fragile dual assumption.
-// Clean fix: grab the default export as sendEmail and the named as its own.
 const _emailMod = require("../utils/sendEmail");
 const sendEmail = typeof _emailMod === "function" ? _emailMod : (_emailMod.default || _emailMod);
 const { sendVerificationEmail } = _emailMod;
