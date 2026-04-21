@@ -21,7 +21,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql://alrt_db_user:1MCZ2cObEuqLFf79MXEvPzN8m0OtjgQ1@dpg-d7go887avr4c73aekgkg-a.oregon-postgres.render.com/alrt_db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Alert {
