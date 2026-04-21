@@ -96,7 +96,7 @@ function Calendar({ smsHistory, selectedDate, onSelectDate }) {
 }
 
 const Notifications = () => {
-  const { smsLogs = [], setSmsLogs, sms_enabled, setSmsEnabled } = useContext(DoorContext);
+  const { smsLogs = [], setSmsLogs, smsEnabled, setSmsEnabled } = useContext(DoorContext);
   const [selectedDate, setSelectedDate] = useState(null);
   const [search,       setSearch]       = useState("");
   const [showConfirm,  setShowConfirm]  = useState(false);
@@ -111,7 +111,7 @@ const Notifications = () => {
   });
 
   const handleSmsToggle = async () => {
-    const newValue = !sms_enabled;
+    const newValue = !smsEnabled;
     setSmsEnabled(newValue);
     try {
       await fetch(`${API}/api/settings/sms`, {
@@ -173,24 +173,24 @@ const Notifications = () => {
       <div className="flex flex-col lg:flex-row gap-6 items-start">
         <div className="hidden lg:flex flex-col gap-4 w-72 shrink-0">
           <div className={`rounded-xl border shadow-sm p-4 flex items-center justify-between transition-colors ${
-            sms_enabled ? "bg-blue-50 border-blue-200" : "bg-white border-gray-200"
+            smsEnabled ? "bg-blue-50 border-blue-200" : "bg-white border-gray-200"
           }`}>
             <div>
-              <p className={`text-sm font-bold ${sms_enabled ? "text-blue-700" : "text-gray-800"}`}>
+              <p className={`text-sm font-bold ${smsEnabled ? "text-blue-700" : "text-gray-800"}`}>
                 SMS Status
               </p>
-              <p className={`text-xs ${sms_enabled ? "text-blue-500" : "text-gray-500"}`}>
-                {sms_enabled ? "Active" : "Disabled"}
+              <p className={`text-xs ${smsEnabled ? "text-blue-500" : "text-gray-500"}`}>
+                {smsEnabled ? "Active" : "Disabled"}
               </p>
             </div>
             <button
               onClick={handleSmsToggle}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                sms_enabled ? "bg-blue-600" : "bg-gray-300"
+                smsEnabled ? "bg-blue-600" : "bg-gray-300"
               }`}
             >
               <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                sms_enabled ? "translate-x-6" : "translate-x-1"
+                smsEnabled ? "translate-x-6" : "translate-x-1"
               }`} />
             </button>
           </div>
