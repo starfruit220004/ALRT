@@ -2,7 +2,7 @@
 const express = require("express");
 const router  = express.Router();
 const prisma  = require("../config/prisma");
-const { toggleAlarm, toggleSMS, getSettings } = require("../controllers/settingsController");
+const { toggleAlarm, toggleSMS, getSettings, updateSchedule } = require("../controllers/settingsController");
 const { verifyToken } = require("../middleware/authMiddleware");
 
 // ── Authenticated routes (React frontend)
@@ -11,6 +11,7 @@ const { verifyToken } = require("../middleware/authMiddleware");
 router.get ("/",      verifyToken, getSettings);
 router.post("/alarm", verifyToken, toggleAlarm);
 router.post("/sms",   verifyToken, toggleSMS);
+router.post("/schedule", verifyToken, updateSchedule);
 
 // ── Public GET /:userId — used by ESP32 (no auth token on hardware)
 router.get("/:userId", async (req, res) => {

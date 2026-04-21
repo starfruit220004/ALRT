@@ -55,9 +55,12 @@ cron.schedule('0 17 * * *', async () => {
 // ── Schedule check in Philippine Time (UTC+8)
 function isWithinSchedule(scheduleStart, scheduleEnd) {
   if (!scheduleStart || !scheduleEnd) return true;
-  const now    = new Date();
-  const phTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
-  const cur    = phTime.getUTCHours() * 60 + phTime.getUTCMinutes();
+  
+  // Use toLocaleString to get the current time in Manila, regardless of server location
+  const phTimeStr = new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" });
+  const phDate = new Date(phTimeStr);
+  const cur = phDate.getHours() * 60 + phDate.getMinutes();
+
   const toMin  = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
   const s = toMin(scheduleStart);
   const e = toMin(scheduleEnd);
@@ -141,6 +144,13 @@ io.on('connection', (socket) => {
     if (userId) {
       socket.join(`user_${userId}`);
       console.log(`[Socket] User ${userId} joined room`);
+    }
+  });
+
+  socket.on('leave_user_room', (userId) => {
+    if (userId) {
+      socket.leave(`user_${userId}`);
+      console.log(`[Socket] User ${userId} left room`);
     }
   });
 

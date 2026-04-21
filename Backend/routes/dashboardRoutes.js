@@ -63,22 +63,21 @@ router.get("/sms-logs", verifyToken, async (req, res) => {
   }
 });
 
-router.post("/sms-logs", async (req, res) => {
+router.post("/sms-logs", verifyToken, async (req, res) => {
   try {
-    const { user_id, status /*, message */ } = req.body;
-
-    if (!user_id) return res.status(400).json({ error: "user_id is required" });
+    const { status /*, message */ } = req.body;
+    const userId = req.user.id;
 
     const log = await prisma.smsLog.create({
       data: {
-        userId: parseInt(user_id, 10),
+        userId,
         status: status || "sent",
         // message: message || null,  // uncomment after adding field to schema
       },
     });
 
     const io = req.app.get("socketio");
-    if (io) io.to(`user_${user_id}`).emit("sms_update", log);
+    if (io) io.to(`user_${userId}`).emit("sms_update", log);
 
     res.json({ message: "SMS log saved", log });
   } catch (err) {

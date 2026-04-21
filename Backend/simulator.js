@@ -2,10 +2,11 @@ const mqtt = require('mqtt');
 
 const userId = 5; // change this to test different users
 
-const client = mqtt.connect('mqtt://broker.hivemq.com:1883');
+const clientId = `Simulator_${Math.random().toString(16).slice(2, 8)}`;
+const client = mqtt.connect('mqtt://broker.hivemq.com:1883', { clientId });
 
 client.on('connect', () => {
-  console.log('Connected to broker');
+  console.log(`Connected to broker as ${clientId}`);
 
   setInterval(() => {
     const statuses = ['OPEN', 'CLOSE', 'Alarm'];

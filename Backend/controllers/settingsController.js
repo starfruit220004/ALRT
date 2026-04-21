@@ -134,3 +134,41 @@ exports.toggleSMS = async (req, res) => {
     res.status(500).json({ message: "Error updating SMS" });
   }
 };
+
+// ─────────────────────────────────────────
+// UPDATE SCHEDULE
+// ─────────────────────────────────────────
+exports.updateSchedule = async (req, res) => {
+  const { scheduleStart, scheduleEnd } = req.body;
+  const userId = req.user.id;
+
+  try {
+    const updated = await prisma.settings.upsert({
+      where:  { userId },
+      update: { scheduleStart, scheduleEnd },
+      create: {
+        userId,
+        alarmEnabled:  false,
+        smsEnabled:    true,
+        scheduleStart,
+        scheduleEnd,
+      },
+    });
+
+    console.log(`[Settings] Schedule UPDATED for user_${userId}: ${scheduleStart} - ${scheduleEnd}`);
+
+    const topic = `Smart_Alert/user_${userId}/settings`;
+    mqttClient.publish(topic, "UPDATE", { retain: false }, (err) => {
+      if (err) console.error("[MQTT] Publish error:", err.message);
+    });
+
+    res.json({
+      message:       "Schedule updated",
+      scheduleStart: updated.scheduleStart,
+      scheduleEnd:   updated.scheduleEnd,
+    });
+  } catch (err) {
+    console.error("[Settings] updateSchedule error:", err.message);
+    res.status(500).json({ message: "Error updating schedule" });
+  }
+};
