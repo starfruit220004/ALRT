@@ -28,6 +28,12 @@ app.set('socketio', io);
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 
+// Set headers for COOP to allow Google OAuth popup communication
+app.use((req, res, next) => {
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+  next();
+});
+
 // ── Routes
 app.use('/api/auth',      require('./routes/authRoutes'));
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
