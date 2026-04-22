@@ -9,7 +9,8 @@ const sendEmail = typeof _emailMod === "function" ? _emailMod : (_emailMod.defau
 const { sendVerificationEmail } = _emailMod;
 
 const { OAuth2Client } = require("google-auth-library");
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+// Initialize without ID first, we will pass ID during verification
+const googleClient = new OAuth2Client();
 
 const JWT_SECRET = process.env.JWT_SECRET || "secret";
 if (!JWT_SECRET) throw new Error("FATAL: JWT_SECRET environment variable is not set.");
