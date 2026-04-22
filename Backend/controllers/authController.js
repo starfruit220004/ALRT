@@ -12,8 +12,10 @@ const { OAuth2Client } = require("google-auth-library");
 // Initialize without ID first, we will pass ID during verification
 const googleClient = new OAuth2Client();
 
-const JWT_SECRET = process.env.JWT_SECRET || "secret";
-if (!JWT_SECRET) throw new Error("FATAL: JWT_SECRET environment variable is not set.");
+const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret_for_dev_only";
+if (!process.env.JWT_SECRET) {
+  console.warn("WARNING: JWT_SECRET is not set. Using insecure fallback.");
+}
 
 function val(v) {
   return v != null && v !== "" ? v : null;
