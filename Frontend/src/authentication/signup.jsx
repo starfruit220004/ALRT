@@ -60,16 +60,15 @@ export default function Signup() {
   const handleGoogleSuccess = async (credentialResponse) => {
     setFormMessage({ text: "", type: "" });
     try {
-      const base64Url = credentialResponse.credential.split(".")[1];
-      const payload   = JSON.parse(atob(base64Url.replace(/-/g, "+").replace(/_/g, "/")));
       const res = await fetch(`${BASE}/api/auth/google`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: payload.email, name: payload.name, avatar: payload.picture }),
+        body: JSON.stringify({ token: credentialResponse.credential }),
       });
       const data = await res.json();
       if (!res.ok) { showMessage(data.message || "Google signup failed."); return; }
       setUser({
+
         token: data.token, role: data.role, name: data.name || "", email: data.email || "",
         avatar: data.avatar || null, userId: data.id || null, mqttTopic: data.mqttTopic || null,
         phone: data.phone || null, username: data.username || null,

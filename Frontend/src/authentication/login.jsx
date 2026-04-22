@@ -66,12 +66,10 @@ export default function Login() {
   const handleGoogleSuccess = async (credentialResponse) => {
     setError(""); setErrorType("");
     try {
-      const base64Url = credentialResponse.credential.split(".")[1];
-      const payload   = JSON.parse(atob(base64Url.replace(/-/g, "+").replace(/_/g, "/")));
       const res = await fetch(`${BASE}/api/auth/google`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: payload.email, name: payload.name, avatar: payload.picture }),
+        body: JSON.stringify({ token: credentialResponse.credential }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.message || "Google login failed."); setErrorType("generic"); return; }

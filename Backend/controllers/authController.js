@@ -8,6 +8,9 @@ const _emailMod = require("../utils/sendEmail");
 const sendEmail = typeof _emailMod === "function" ? _emailMod : (_emailMod.default || _emailMod);
 const { sendVerificationEmail } = _emailMod;
 
+const { OAuth2Client } = require("google-auth-library");
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
 const JWT_SECRET = process.env.JWT_SECRET || "secret";
 if (!JWT_SECRET) throw new Error("FATAL: JWT_SECRET environment variable is not set.");
 
@@ -199,8 +202,18 @@ exports.login = async (req, res) => {
 // 5. GOOGLE LOGIN
 // ─────────────────────────────────────────
 exports.googleAuth = async (req, res) => {
-  const { email, name, avatar } = req.body;
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ message: "Google token is required" });
+
   try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const { email, name, picture: avatar } = payload;
+
     let user = await prisma.user.findUnique({ where: { email } });
 
     if (!user) {
@@ -208,6 +221,7 @@ exports.googleAuth = async (req, res) => {
         data: {
           name,
           email,
+          avatar:      val(avatar),
           password:    "google_sso_user",
           role:        "user",
           mqttTopic:   "placeholder",
