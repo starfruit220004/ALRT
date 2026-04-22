@@ -209,6 +209,9 @@ exports.googleAuth = async (req, res) => {
     const ticket = await googleClient.verifyIdToken({
       idToken: token,
       audience: process.env.GOOGLE_CLIENT_ID,
+    }).catch(e => {
+      console.error("Google Token Verification Failed:", e.message);
+      throw e;
     });
 
     const payload = ticket.getPayload();
