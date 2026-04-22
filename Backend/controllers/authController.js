@@ -205,13 +205,21 @@ exports.googleAuth = async (req, res) => {
   const { token } = req.body;
   if (!token) return res.status(400).json({ message: "Google token is required" });
 
+  if (!process.env.GOOGLE_CLIENT_ID) {
+    console.error("CRITICAL: GOOGLE_CLIENT_ID is missing from environment variables.");
+    return res.status(500).json({ 
+      message: "Backend Configuration Error: GOOGLE_CLIENT_ID is not set on the server.",
+      debug: "Check Render Environment Variables" 
+    });
+  }
+
   try {
     const ticket = await googleClient.verifyIdToken({
       idToken: token,
       audience: process.env.GOOGLE_CLIENT_ID,
     }).catch(e => {
       console.error("Google Token Verification Failed:", e.message);
-      throw e;
+      throw new Error(`Google Verification Failed: ${e.message}`);
     });
 
     const payload = ticket.getPayload();
