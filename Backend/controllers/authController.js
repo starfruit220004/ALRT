@@ -38,7 +38,7 @@ exports.signup = async (req, res) => {
   try {
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
-      return res.status(400).json({ message: "Email already in use" });
+      return res.status(400).json({ message: "This email is already registered. Please log in instead or use a different email." });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
