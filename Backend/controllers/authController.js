@@ -264,7 +264,7 @@ exports.googleAuth = async (req, res) => {
       });
     }
 
-    const token = jwt.sign(
+    const jwtToken = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       JWT_SECRET,
       { expiresIn: "1d" }
@@ -272,7 +272,7 @@ exports.googleAuth = async (req, res) => {
 
     res.status(200).json({
       message:    "Google login successful",
-      token,
+      token:      jwtToken,
       id:         user.id,
       role:       user.role,
       name:       user.name,
