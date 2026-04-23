@@ -46,13 +46,20 @@ export default function AdminDashboard() {
     try {
       const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
       const res = await fetch(`${apiUrl}/api/admin/users`, { headers: getHeaders() });
+      
+      if (res.status === 401 || res.status === 403) {
+        logout();
+        navigate("/login");
+        return;
+      }
+      
       if (!res.ok) return notify(`❌ Failed to load users`);
       const data = await res.json();
       setUsers(Array.isArray(data) ? data : []);
     } catch {
       notify("❌ Network error loading users");
     }
-  }, [getHeaders]);
+  }, [getHeaders, logout, navigate]);
 
   useEffect(() => { loadUsers(); }, [loadUsers]);
 

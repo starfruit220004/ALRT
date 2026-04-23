@@ -18,7 +18,6 @@
 
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { QRCodeSVG } from 'qrcode.react'; // requires: npm install qrcode.react@3
 import {
   User, Mail, Camera, Save, X, Phone,
   AtSign, MapPin, Cpu, Copy, CheckCheck, Wifi,
@@ -34,8 +33,6 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 //    card would silently return null with no error shown.
 function DeviceIdCard({ userId }) {
   const [copied, setCopied] = useState(false);
-
-  const qrValue = `alrt://setup?user_id=${userId}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(String(userId));
@@ -54,28 +51,12 @@ function DeviceIdCard({ userId }) {
         </div>
         <div>
           <p className="text-xs font-bold text-blue-900">Device Setup ID</p>
-          <p className="text-[11px] text-blue-500">Scan QR from the device portal — no typing needed</p>
+          <p className="text-[11px] text-blue-500">Use this ID to link your physical device to your account</p>
         </div>
       </div>
 
-      {/* QR Code */}
-      <div className="flex flex-col items-center gap-2 bg-white border border-blue-100 rounded-xl p-4">
-        <QRCodeSVG
-          value={qrValue}
-          size={130}
-          bgColor="#ffffff"
-          fgColor="#1d4ed8"
-          level="H"
-          includeMargin={true}
-        />
-        <p className="text-[11px] text-gray-400 text-center">
-          Scan from <strong>ALRT_Setup_Portal</strong> page
-        </p>
-      </div>
-
-      {/* Manual fallback */}
+      {/* Manual entry */}
       <div>
-        <p className="text-[11px] text-blue-700 font-semibold mb-1">Or enter manually if QR fails:</p>
         <div className="flex items-center justify-between bg-white border border-blue-200 rounded-lg px-3 py-2">
           <span className="text-2xl font-black text-blue-700 tracking-widest">{userId}</span>
           <button
@@ -96,8 +77,7 @@ function DeviceIdCard({ userId }) {
         {[
           'Power on your ALRT device',
           'Connect phone to "ALRT_Setup_Portal" hotspot',
-          'Portal page opens — tap Scan QR Code',
-          'Point camera at the QR above — ID fills automatically',
+          'Enter the Setup ID above into the device configuration page',
           'Enter your WiFi password and tap Save',
         ].map((step, i) => (
           <li key={i} className="flex items-start gap-2 text-[11px] text-blue-700">
@@ -113,7 +93,7 @@ function DeviceIdCard({ userId }) {
       <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
         <Wifi size={12} className="text-amber-600 shrink-0 mt-0.5" />
         <p className="text-[11px] text-amber-700">
-          Keep this page open while setting up the device so you can scan easily.
+          Make sure to enter the correct Setup ID to receive alerts.
         </p>
       </div>
     </div>

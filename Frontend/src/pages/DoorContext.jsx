@@ -8,7 +8,7 @@ export const DoorContext = createContext();
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export const DoorProvider = ({ children }) => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const [doorStatus,     setDoorStatus]     = useState(null);
   const [activityLogs,   setActivityLogs]   = useState([]);
@@ -47,6 +47,15 @@ export const DoorProvider = ({ children }) => {
           fetch(`${API}/api/dashboard/sms-logs`, { headers }),
           fetch(`${API}/api/settings`,           { headers }),
         ]);
+
+        // If any request returns 401 or 403, it means the session is invalid or account deactivated
+        if (actRes.status === 403 || smsRes.status === 403 || setRes.status === 403 ||
+            actRes.status === 401 || smsRes.status === 401 || setRes.status === 401) {
+          console.warn('[DoorContext] Unauthorized or deactivated. Logging out.');
+          logout();
+          return;
+        }
+
         const actData = await actRes.json();
         const smsData = await smsRes.json();
         const setData = await setRes.json();

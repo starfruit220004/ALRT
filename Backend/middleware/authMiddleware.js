@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const prisma = require('../config/prisma');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -9,7 +10,7 @@ if (!JWT_SECRET) {
 // ─────────────────────────────────────────
 // Verify JWT Token
 // ─────────────────────────────────────────
-exports.verifyToken = (req, res, next) => {
+exports.verifyToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
 
   if (!authHeader || !authHeader.startsWith('Bearer '))
@@ -19,10 +20,28 @@ exports.verifyToken = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
+    
+    // Check if user is still active in the database
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: { isActive: true, role: true }
+    });
+
+    if (!user) {
+      return res.status(401).json({ message: 'User no longer exists' });
+    }
+
+    if (!user.isActive) {
+      return res.status(403).json({ message: 'Your account has been deactivated' });
+    }
+
+    req.user = { ...decoded, role: user.role }; // Ensure role is up to date from DB
     next();
   } catch (err) {
-    return res.status(401).json({ message: 'Invalid or expired token' });
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'Token expired' });
+    }
+    return res.status(401).json({ message: 'Invalid token' });
   }
 };
 

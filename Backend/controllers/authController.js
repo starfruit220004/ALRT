@@ -226,7 +226,13 @@ exports.googleAuth = async (req, res) => {
     });
 
     const payload = ticket.getPayload();
-    const { email, name, picture: avatar } = payload;
+    const { email, name, picture: avatar, given_name, family_name } = payload;
+
+    // ── Auto-fill firstName / lastName from Google's own fields ──
+    // Google provides given_name (first) and family_name (last) directly.
+    // Fall back to splitting the full name string if those are missing.
+    const firstName = val(given_name)  || val(name?.split(" ")[0])                   || null;
+    const lastName  = val(family_name) || val(name?.split(" ").slice(1).join(" "))   || null;
 
     let user = await prisma.user.findUnique({ where: { email } });
 
@@ -241,6 +247,8 @@ exports.googleAuth = async (req, res) => {
           mqttTopic:   "placeholder",
           isVerified:  true,
           verifyToken: null,
+          firstName,   // ✅ auto-filled from Google
+          lastName,    // ✅ auto-filled from Google
         },
       });
 
