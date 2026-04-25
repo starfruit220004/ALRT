@@ -173,5 +173,4 @@ export default function Login() {
       <span className="auth-footer"><Link to="/forgot">Forgot Password?</Link></span>
     </AuthLayout>
   );
-  );
 }
