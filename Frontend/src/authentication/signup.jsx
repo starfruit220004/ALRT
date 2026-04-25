@@ -35,6 +35,7 @@ export default function Signup() {
     if (!email.trim())      newErrors.email      = "Email is required.";
     if (!password.trim())   newErrors.password   = "Password is required.";
     if (!phone.trim())      newErrors.phone      = "Phone number is required.";
+    else if (!/^\+?\d{10,15}$/.test(phone.trim().replace(/[\s-]/g, ""))) newErrors.phone = "Invalid phone number (10-15 digits).";
     if (!address.trim())    newErrors.address    = "Address is required.";
     return newErrors;
   };

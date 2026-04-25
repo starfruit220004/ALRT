@@ -39,7 +39,7 @@ export default function Sidebar({ onProfileClick }) {
           }
         </div>
         <div className="text-center overflow-hidden">
-          <p className="font-semibold text-sm text-white truncate max-w-40">{user?.name || 'User'}</p>
+          <p className="font-semibold text-sm text-white truncate max-w-40">{user?.username || user?.name || 'User'}</p>
           <p className="text-xs text-slate-400 truncate max-w-40">{user?.email || ''}</p>
         </div>
       </button>
@@ -148,7 +148,7 @@ export default function Sidebar({ onProfileClick }) {
           </div>
           {!collapsed && (
             <div className="text-center overflow-hidden">
-              <p className="font-semibold text-sm text-white truncate max-w-40">{user?.name || 'User'}</p>
+              <p className="font-semibold text-sm text-white truncate max-w-40">{user?.username || user?.name || 'User'}</p>
               <p className="text-xs text-slate-400 truncate max-w-40">{user?.email || ''}</p>
             </div>
           )}

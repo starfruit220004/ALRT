@@ -134,7 +134,8 @@ export default function Profile({ onClose }) {
     if (!lastName.trim())  errs.lastName  = 'Last name is required.';
     if (!username.trim())  errs.username  = 'Username is required.';
     if (!email.trim())     errs.email     = 'Email is required.';
-    if (!phone.trim())     errs.phone     = 'Phone number is required.';
+    if (!phone.trim()) errs.phone = 'Phone number is required.';
+    else if (!/^\+?\d{10,15}$/.test(phone.trim().replace(/[\s-]/g, ""))) errs.phone = 'Invalid phone number (10-15 digits).';
     if (!address.trim())   errs.address   = 'Address is required.';
     return errs;
   }
@@ -243,6 +244,10 @@ export default function Profile({ onClose }) {
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
               </>
             )}
+          </div>
+          <div className="ml-4 mb-1">
+            <h2 className="text-xl font-bold text-white leading-tight">{username || user?.username || 'User'}</h2>
+            <p className="text-xs text-blue-200">{user?.role === 'admin' ? 'Administrator' : 'Smart Alert User'}</p>
           </div>
         </div>
 

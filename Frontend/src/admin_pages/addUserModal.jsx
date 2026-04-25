@@ -32,6 +32,7 @@ export default function AddUserModal({ isOpen, onClose, getHeaders, onSuccess })
     if (!form.email.trim())     e.email     = "Required";
     if (!form.password.trim())  e.password  = "Required";
     if (!form.phone.trim())     e.phone     = "Required";
+    else if (!/^\+?\d{10,15}$/.test(form.phone.trim().replace(/[\s-]/g, ""))) e.phone = "Invalid (10-15 digits)";
     if (!form.address.trim())   e.address   = "Required";
     return e;
   };
