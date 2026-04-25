@@ -3,12 +3,14 @@ import { useNavigate, Link } from "react-router-dom";
 import AuthLayout from "./AuthLayout";
 import { useAuth } from "../context/AuthContext";
 import { GoogleLogin } from "@react-oauth/google";
+import { Eye, EyeOff } from "lucide-react";
 
 const BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export default function Login() {
   const [email, setEmail]           = useState("");
   const [password, setPassword]     = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError]           = useState("");
   const [errorType, setErrorType]   = useState("");
   const [resendSent, setResendSent] = useState(false);
@@ -98,7 +100,25 @@ export default function Login() {
       </div>
       <div className="auth-field">
         <label className="auth-label">Password</label>
-        <input type="password" className="auth-input" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={handleKeyDown} />
+        <div className="auth-password-wrapper">
+          <input 
+            type={showPassword ? "text" : "password"} 
+            className="auth-input" 
+            style={{ paddingRight: "44px" }}
+            placeholder="••••••••" 
+            value={password} 
+            onChange={(e) => setPassword(e.target.value)} 
+            onKeyDown={handleKeyDown} 
+          />
+          <button 
+            type="button"
+            className="auth-password-toggle"
+            onClick={() => setShowPassword(!showPassword)}
+            tabIndex="-1"
+          >
+            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+          </button>
+        </div>
       </div>
       {errorType === "notfound" && (
         <div style={{ marginBottom: "12px", padding: "14px 16px", borderRadius: "10px", background: "#fff1f2", border: "1px solid #fecdd3", borderLeft: "4px solid #f43f5e" }}>

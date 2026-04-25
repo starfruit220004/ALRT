@@ -165,6 +165,31 @@ const authStyles = `
 
   .auth-input:focus { border-color: var(--blue); outline: none; box-shadow: 0 0 0 4px rgba(29,78,216,0.08); }
 
+  .auth-password-wrapper {
+    position: relative;
+    width: 100%;
+  }
+
+  .auth-password-toggle {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    transition: color 0.2s;
+  }
+
+  .auth-password-toggle:hover {
+    color: var(--blue);
+  }
+
   .auth-btn {
     width: 100%;
     padding: 14px;

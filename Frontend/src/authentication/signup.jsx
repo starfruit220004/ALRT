@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import AuthLayout from "./AuthLayout";
 import { useAuth } from "../context/AuthContext";
 import { GoogleLogin } from "@react-oauth/google";
+import { Eye, EyeOff } from "lucide-react";
 
 const BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
@@ -13,6 +14,7 @@ export default function Signup() {
   const [username, setUsername]     = useState("");
   const [email, setEmail]           = useState("");
   const [password, setPassword]     = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [phone, setPhone]           = useState("");
   const [address, setAddress]       = useState("");
   const [errors, setErrors]         = useState({});
@@ -133,8 +135,25 @@ export default function Signup() {
       </div>
       <div className="auth-field">
         <label className="auth-label">Password</label>
-        <input type="password" className={inputClass("password")} placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} />
-        {errors.password && <span className="auth-error">{errors.password}</span>}
+        <div className="auth-password-wrapper">
+          <input 
+            type={showPassword ? "text" : "password"} 
+            className={inputClass("password")} 
+            style={{ paddingRight: "44px" }}
+            placeholder="••••••••" 
+            value={password} 
+            onChange={e => setPassword(e.target.value)} 
+          />
+          <button 
+            type="button"
+            className="auth-password-toggle"
+            onClick={() => setShowPassword(!showPassword)}
+            tabIndex="-1"
+          >
+            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+          </button>
+        </div>
+        {errors.password && <span className="auth-error" style={{ color: "#be123c", fontSize: "0.75rem", marginTop: "4px", display: "block" }}>{errors.password}</span>}
       </div>
       <div className="auth-field">
         <label className="auth-label">Phone Number</label>

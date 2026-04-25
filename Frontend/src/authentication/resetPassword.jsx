@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import AuthLayout from "./AuthLayout";
+import { Eye, EyeOff } from "lucide-react";
 
 const BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export default function ResetPassword() {
   const [newPassword, setNewPassword]         = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading]                 = useState(false);
   const [error, setError]                     = useState("");
   const [success, setSuccess]                 = useState(false);
@@ -60,11 +63,47 @@ export default function ResetPassword() {
       <form onSubmit={handleReset} style={{ width: "100%" }}>
         <div className="auth-field">
           <label className="auth-label">New Password</label>
-          <input className="auth-input" type="password" value={newPassword} placeholder="Min. 6 characters" onChange={(e) => setNewPassword(e.target.value)} required />
+          <div className="auth-password-wrapper">
+            <input 
+              className="auth-input" 
+              type={showNewPassword ? "text" : "password"} 
+              style={{ paddingRight: "44px" }}
+              value={newPassword} 
+              placeholder="Min. 6 characters" 
+              onChange={(e) => setNewPassword(e.target.value)} 
+              required 
+            />
+            <button 
+              type="button"
+              className="auth-password-toggle"
+              onClick={() => setShowNewPassword(!showNewPassword)}
+              tabIndex="-1"
+            >
+              {showNewPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+          </div>
         </div>
         <div className="auth-field">
           <label className="auth-label">Confirm Password</label>
-          <input className="auth-input" type="password" value={confirmPassword} placeholder="Repeat new password" onChange={(e) => setConfirmPassword(e.target.value)} required />
+          <div className="auth-password-wrapper">
+            <input 
+              className="auth-input" 
+              type={showConfirmPassword ? "text" : "password"} 
+              style={{ paddingRight: "44px" }}
+              value={confirmPassword} 
+              placeholder="Repeat new password" 
+              onChange={(e) => setConfirmPassword(e.target.value)} 
+              required 
+            />
+            <button 
+              type="button"
+              className="auth-password-toggle"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              tabIndex="-1"
+            >
+              {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+          </div>
         </div>
         <button type="submit" className="auth-btn" disabled={loading}>{loading ? "Updating…" : "Update Password"}</button>
       </form>

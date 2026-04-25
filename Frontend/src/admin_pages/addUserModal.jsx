@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X, Eye, EyeOff } from "lucide-react";
 
 const BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
@@ -16,6 +16,7 @@ const EMPTY = {
 
 export default function AddUserModal({ isOpen, onClose, getHeaders, onSuccess }) {
   const [form, setForm]       = useState(EMPTY);
+  const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors]   = useState({});
   const [message, setMessage] = useState("");
 
@@ -117,7 +118,23 @@ export default function AddUserModal({ isOpen, onClose, getHeaders, onSuccess })
           </div>
           <div className="col-span-2">
             <label className="block text-xs text-gray-500 mb-1">Password</label>
-            <input type="password" className={ic("password")} placeholder="••••••••" value={form.password} onChange={set("password")} />
+            <div className="relative">
+              <input 
+                type={showPassword ? "text" : "password"} 
+                className={`${ic("password")} pr-10`}
+                placeholder="••••••••" 
+                value={form.password} 
+                onChange={set("password")} 
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                onClick={() => setShowPassword(!showPassword)}
+                tabIndex="-1"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
             {errors.password && <span className="text-xs text-red-500">{errors.password}</span>}
           </div>
           <div>
