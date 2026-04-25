@@ -19,7 +19,8 @@ export default function Login() {
   const navigate = useNavigate();
   const { setUser } = useAuth();
 
-  const login = async () => {
+  const login = async (e) => {
+    if (e) e.preventDefault();
     setError(""); setErrorType(""); setResendSent(false);
     try {
       const res = await fetch(`${BASE}/api/auth/login`, {
@@ -88,80 +89,89 @@ export default function Login() {
     }
   };
 
-  const handleKeyDown = (e) => { if (e.key === "Enter") login(); };
-
   return (
     <AuthLayout dotActive={0}>
       <h2 className="auth-title">Sign in</h2>
       <p className="auth-sub">No account? <Link to="/signup">Create one →</Link></p>
-      <div className="auth-field">
-        <label className="auth-label">Email</label>
-        <input className="auth-input" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={handleKeyDown} />
-      </div>
-      <div className="auth-field">
-        <label className="auth-label">Password</label>
-        <div className="auth-password-wrapper">
+      
+      <form onSubmit={login}>
+        <div className="auth-field">
+          <label className="auth-label">Email</label>
           <input 
-            type={showPassword ? "text" : "password"} 
             className="auth-input" 
-            style={{ paddingRight: "44px" }}
-            placeholder="••••••••" 
-            value={password} 
-            onChange={(e) => setPassword(e.target.value)} 
-            onKeyDown={handleKeyDown} 
+            placeholder="you@example.com" 
+            value={email} 
+            onChange={(e) => setEmail(e.target.value)} 
           />
-          <button 
-            type="button"
-            className="auth-password-toggle"
-            onClick={() => setShowPassword(!showPassword)}
-            tabIndex="-1"
-          >
-            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-          </button>
         </div>
-      </div>
-      {errorType === "notfound" && (
-        <div style={{ marginBottom: "12px", padding: "14px 16px", borderRadius: "10px", background: "#fff1f2", border: "1px solid #fecdd3", borderLeft: "4px solid #f43f5e" }}>
-          <p style={{ color: "#9f1239", fontWeight: 600, marginBottom: "4px", fontSize: "0.85rem" }}>🔍 No account found</p>
-          <p style={{ color: "#be123c", fontSize: "0.80rem", lineHeight: 1.6, marginBottom: "10px" }}>We couldn't find an account for <strong>{email}</strong>.</p>
-          <Link to="/signup" style={{ fontSize: "0.80rem", fontWeight: 600, color: "#be123c", border: "1px solid #fecdd3", borderRadius: "6px", padding: "5px 12px", textDecoration: "none", display: "inline-block" }}>Create an account →</Link>
-        </div>
-      )}
-      {errorType === "unverified" && (
-        <div style={{ marginBottom: "12px", padding: "14px 16px", borderRadius: "10px", background: "#fffbeb", border: "1px solid #fcd34d", borderLeft: "4px solid #f59e0b" }}>
-          <p style={{ color: "#78350f", fontWeight: 600, marginBottom: "4px", fontSize: "0.85rem" }}>📬 Check your email to continue</p>
-          <p style={{ color: "#92400e", fontSize: "0.80rem", marginBottom: "10px", lineHeight: 1.6 }}>We sent a verification link to <strong>{email}</strong>. Also check your <strong>spam folder</strong>.</p>
-          {resendSent ? (
-            <p style={{ color: "#15803d", fontWeight: 500, fontSize: "0.80rem" }}>✅ Verification email resent!</p>
-          ) : (
-            <button onClick={handleResend} disabled={resending} style={{ fontSize: "0.80rem", fontWeight: 600, color: "#b45309", background: "none", border: "1px solid #fcd34d", borderRadius: "6px", cursor: "pointer", padding: "5px 12px" }}>
-              {resending ? "Sending…" : "Resend verification email"}
+        <div className="auth-field">
+          <label className="auth-label">Password</label>
+          <div className="auth-password-wrapper">
+            <input 
+              type={showPassword ? "text" : "password"} 
+              className="auth-input" 
+              style={{ paddingRight: "44px" }}
+              placeholder="••••••••" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+            />
+            <button 
+              type="button"
+              className="auth-password-toggle"
+              onClick={() => setShowPassword(!showPassword)}
+              tabIndex="-1"
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>
-          )}
+          </div>
         </div>
-      )}
-      {errorType === "deactivated" && (
-        <div style={{ marginBottom: "12px", padding: "14px 16px", borderRadius: "10px", background: "#f8fafc", border: "1px solid #cbd5e1", borderLeft: "4px solid #64748b" }}>
-          <p style={{ color: "#1e293b", fontWeight: 600, marginBottom: "4px", fontSize: "0.85rem" }}>🚫 Account deactivated</p>
-          <p style={{ color: "#475569", fontSize: "0.80rem", lineHeight: 1.6 }}>Your account has been deactivated. Please contact an administrator.</p>
-        </div>
-      )}
-      {errorType === "invalid" && (
-        <div style={{ marginBottom: "12px", padding: "14px 16px", borderRadius: "10px", background: "#fff1f2", border: "1px solid #fecdd3", borderLeft: "4px solid #f43f5e" }}>
-          <p style={{ color: "#9f1239", fontWeight: 600, marginBottom: "4px", fontSize: "0.85rem" }}>🔐 Incorrect password</p>
-          <p style={{ color: "#be123c", fontSize: "0.80rem", lineHeight: 1.6, marginBottom: "8px" }}>The password you entered is incorrect.</p>
-          <Link to="/forgot" style={{ fontSize: "0.80rem", fontWeight: 600, color: "#be123c", textDecoration: "underline" }}>Forgot your password?</Link>
-        </div>
-      )}
-      {errorType === "generic" && error && (
-        <p style={{ fontSize: "0.82rem", marginBottom: "8px", padding: "9px 12px", borderRadius: "8px", color: "#be123c", background: "#fff1f2", border: "1px solid #fecdd3" }}>{error}</p>
-      )}
-      <button onClick={login} className="auth-btn">Login</button>
+
+        {errorType === "notfound" && (
+          <div style={{ marginBottom: "12px", padding: "14px 16px", borderRadius: "10px", background: "#fff1f2", border: "1px solid #fecdd3", borderLeft: "4px solid #f43f5e" }}>
+            <p style={{ color: "#9f1239", fontWeight: 600, marginBottom: "4px", fontSize: "0.85rem" }}>🔍 No account found</p>
+            <p style={{ color: "#be123c", fontSize: "0.80rem", lineHeight: 1.6, marginBottom: "10px" }}>We couldn't find an account for <strong>{email}</strong>.</p>
+            <Link to="/signup" style={{ fontSize: "0.80rem", fontWeight: 600, color: "#be123c", border: "1px solid #fecdd3", borderRadius: "6px", padding: "5px 12px", textDecoration: "none", display: "inline-block" }}>Create an account →</Link>
+          </div>
+        )}
+        {errorType === "unverified" && (
+          <div style={{ marginBottom: "12px", padding: "14px 16px", borderRadius: "10px", background: "#fffbeb", border: "1px solid #fcd34d", borderLeft: "4px solid #f59e0b" }}>
+            <p style={{ color: "#78350f", fontWeight: 600, marginBottom: "4px", fontSize: "0.85rem" }}>📬 Check your email to continue</p>
+            <p style={{ color: "#92400e", fontSize: "0.80rem", marginBottom: "10px", lineHeight: 1.6 }}>We sent a verification link to <strong>{email}</strong>. Also check your <strong>spam folder</strong>.</p>
+            {resendSent ? (
+              <p style={{ color: "#15803d", fontWeight: 500, fontSize: "0.80rem" }}>✅ Verification email resent!</p>
+            ) : (
+              <button type="button" onClick={handleResend} disabled={resending} style={{ fontSize: "0.80rem", fontWeight: 600, color: "#b45309", background: "none", border: "1px solid #fcd34d", borderRadius: "6px", cursor: "pointer", padding: "5px 12px" }}>
+                {resending ? "Sending…" : "Resend verification email"}
+              </button>
+            )}
+          </div>
+        )}
+        {errorType === "deactivated" && (
+          <div style={{ marginBottom: "12px", padding: "14px 16px", borderRadius: "10px", background: "#f8fafc", border: "1px solid #cbd5e1", borderLeft: "4px solid #64748b" }}>
+            <p style={{ color: "#1e293b", fontWeight: 600, marginBottom: "4px", fontSize: "0.85rem" }}>🚫 Account deactivated</p>
+            <p style={{ color: "#475569", fontSize: "0.80rem", lineHeight: 1.6 }}>Your account has been deactivated. Please contact an administrator.</p>
+          </div>
+        )}
+        {errorType === "invalid" && (
+          <div style={{ marginBottom: "12px", padding: "14px 16px", borderRadius: "10px", background: "#fff1f2", border: "1px solid #fecdd3", borderLeft: "4px solid #f43f5e" }}>
+            <p style={{ color: "#9f1239", fontWeight: 600, marginBottom: "4px", fontSize: "0.85rem" }}>🔐 Incorrect password</p>
+            <p style={{ color: "#be123c", fontSize: "0.80rem", lineHeight: 1.6, marginBottom: "8px" }}>The password you entered is incorrect.</p>
+            <Link to="/forgot" style={{ fontSize: "0.80rem", fontWeight: 600, color: "#be123c", textDecoration: "underline" }}>Forgot your password?</Link>
+          </div>
+        )}
+        {errorType === "generic" && error && (
+          <p style={{ fontSize: "0.82rem", marginBottom: "8px", padding: "9px 12px", borderRadius: "8px", color: "#be123c", background: "#fff1f2", border: "1px solid #fecdd3" }}>{error}</p>
+        )}
+        
+        <button type="submit" className="auth-btn">Login</button>
+      </form>
+
       <p style={{ textAlign: "center", margin: "12px 0", color: "#94a3b8", fontSize: "0.8rem" }}>or</p>
       <div style={{ display: "flex", justifyContent: "center" }}>
         <GoogleLogin onSuccess={handleGoogleSuccess} onError={() => { setError("Google Login Failed"); setErrorType("generic"); }} />
       </div>
       <span className="auth-footer"><Link to="/forgot">Forgot Password?</Link></span>
     </AuthLayout>
+  );
   );
 }
