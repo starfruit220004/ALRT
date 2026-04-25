@@ -195,16 +195,17 @@ const ActivityLog = () => {
   const [search, setSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState(null);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const token = localStorage.getItem("token");
 
-  // FIX: Fixed the crash on Line 196 (filter logic)
+  // Filter logic
   const filtered = activityLogs.filter((log) => {
     const statusText = log.status || "";
     const matchesSearch = statusText.toLowerCase().includes(search.toLowerCase());
     
     const d = new Date(log.createdAt || log.created_at);
     
-    // Safety check: if date is invalid, don't try to call toISOString()
     if (isNaN(d.getTime())) {
         return selectedDate ? false : matchesSearch;
     }
@@ -213,6 +214,18 @@ const ActivityLog = () => {
     const matchesDate = selectedDate ? logDate === selectedDate : true;
     return matchesSearch && matchesDate;
   });
+
+  // Pagination logic
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const paginatedData = filtered.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Reset to page 1 when search or date changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedDate]);
 
   const handleDeleteActivity = async (id) => {
     try {
@@ -265,7 +278,7 @@ const ActivityLog = () => {
           />
         </div>
 
-        <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col w-full overflow-hidden h-[540px]">
+        <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col w-full overflow-hidden min-h-[580px]">
           <div className="p-4 border-b border-gray-100 flex items-center gap-4 bg-white">
             <span className="font-bold text-gray-800 shrink-0">Event History</span>
             <div className="relative w-48 md:w-64">
@@ -280,10 +293,10 @@ const ActivityLog = () => {
             </div>
           </div>
 
-          <div className="overflow-y-auto flex-1">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-gray-50 z-10 border-b border-gray-100">
-                <tr className="text-left text-xs font-bold text-gray-400 uppercase">
+          <div className="flex-1">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr className="text-xs font-bold text-gray-400 uppercase">
                   <th className="px-5 py-3">Event</th>
                   <th className="px-5 py-3">Date</th>
                   <th className="px-5 py-3">Time</th>
@@ -291,17 +304,16 @@ const ActivityLog = () => {
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
+                {paginatedData.length === 0 ? (
                   <tr>
                     <td colSpan={4} className="text-center py-20 text-gray-400 italic">
                       No records found
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((log) => {
+                  paginatedData.map((log) => {
                     const isAlarm = log.status === "Alarm";
                     const isOpen = log.status === "Opened" || log.status === "OPEN";
-                    // FIX: Safe date construction for the table rows
                     const logDateObj = new Date(log.createdAt || log.created_at);
                     const isValid = !isNaN(logDateObj.getTime());
 
@@ -350,6 +362,62 @@ const ActivityLog = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="p-4 border-t border-gray-100 flex items-center justify-between bg-white">
+              <p className="text-xs text-gray-500">
+                Showing <span className="font-bold text-gray-700">{Math.min(filtered.length, (currentPage - 1) * itemsPerPage + 1)}-{Math.min(filtered.length, currentPage * itemsPerPage)}</span> of <span className="font-bold text-gray-700">{filtered.length}</span> events
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                  className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <div className="flex items-center gap-1">
+                  {[...Array(totalPages)].map((_, i) => {
+                    const page = i + 1;
+                    // Only show first, last, and pages around current
+                    if (
+                      page === 1 ||
+                      page === totalPages ||
+                      (page >= currentPage - 1 && page <= currentPage + 1)
+                    ) {
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
+                            currentPage === page
+                              ? "bg-blue-600 text-white shadow-md shadow-blue-100"
+                              : "text-gray-600 hover:bg-gray-100"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      );
+                    } else if (
+                      page === currentPage - 2 ||
+                      page === currentPage + 2
+                    ) {
+                      return <span key={page} className="text-gray-400 px-1">...</span>;
+                    }
+                    return null;
+                  })}
+                </div>
+                <button
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                  className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
