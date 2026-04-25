@@ -100,8 +100,11 @@ const Notifications = () => {
   const [selectedDate, setSelectedDate] = useState(null);
   const [search,       setSearch]       = useState("");
   const [showConfirm,  setShowConfirm]  = useState(false);
+  const [currentPage,  setCurrentPage]  = useState(1);
+  const itemsPerPage = 10;
   const token = localStorage.getItem("token");
 
+  // Filter logic
   const filteredSms = smsLogs.filter((s) => {
     const d       = new Date(s.createdAt || s.created_at);
     const logDate = !isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : "";
@@ -109,6 +112,18 @@ const Notifications = () => {
     const matchesSearch = (s.status || "").toLowerCase().includes(search.toLowerCase());
     return matchesDate && matchesSearch;
   });
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredSms.length / itemsPerPage);
+  const paginatedData = filteredSms.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Reset to page 1 when search or date changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedDate]);
 
   const handleSmsToggle = async () => {
     const newValue = !smsEnabled;
@@ -120,7 +135,6 @@ const Notifications = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        // ✅ "value" matches toggleSMS controller: const { value } = req.body
         body: JSON.stringify({ value: newValue }),
       });
     } catch (err) {
@@ -202,7 +216,7 @@ const Notifications = () => {
           />
         </div>
 
-        <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col w-full overflow-hidden h-[540px]">
+        <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col w-full overflow-hidden min-h-[580px]">
           <div className="p-4 border-b border-gray-100 flex items-center gap-4 bg-white">
             <span className="font-bold text-gray-800 shrink-0">SMS History</span>
             <div className="relative w-48 md:w-64">
@@ -217,9 +231,9 @@ const Notifications = () => {
             </div>
           </div>
 
-          <div className="overflow-y-auto flex-1">
+          <div className="flex-1">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-gray-50 z-10 border-b border-gray-100 text-xs font-bold text-gray-400 uppercase">
+              <thead className="bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-400 uppercase">
                 <tr className="text-left">
                   <th className="px-5 py-3">Event</th>
                   <th className="px-5 py-3">Date</th>
@@ -228,14 +242,14 @@ const Notifications = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredSms.length === 0 ? (
+                {paginatedData.length === 0 ? (
                   <tr>
                     <td colSpan={4} className="text-center py-20 text-gray-400 italic">
                       No logs found
                     </td>
                   </tr>
                 ) : (
-                  filteredSms.map((sms) => {
+                  paginatedData.map((sms) => {
                     const isAlarm = sms.status === "Alarm";
                     const isOpen  = sms.status === "Opened" || sms.status === "OPEN";
                     const dateObj = new Date(sms.createdAt || sms.created_at);
@@ -272,6 +286,58 @@ const Notifications = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="p-4 border-t border-gray-100 flex items-center justify-between bg-white">
+              <p className="text-xs text-gray-500">
+                Showing <span className="font-bold text-gray-700">{Math.min(filteredSms.length, (currentPage - 1) * itemsPerPage + 1)}-{Math.min(filteredSms.length, currentPage * itemsPerPage)}</span> of <span className="font-bold text-gray-700">{filteredSms.length}</span> logs
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                  className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <div className="flex items-center gap-1">
+                  {[...Array(totalPages)].map((_, i) => {
+                    const page = i + 1;
+                    if (
+                      page === 1 ||
+                      page === totalPages ||
+                      (page >= currentPage - 1 && page <= currentPage + 1)
+                    ) {
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
+                            currentPage === page
+                              ? "bg-blue-600 text-white shadow-md"
+                              : "text-gray-600 hover:bg-gray-100"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      );
+                    } else if (page === currentPage - 2 || page === currentPage + 2) {
+                      return <span key={page} className="text-gray-400 px-1">...</span>;
+                    }
+                    return null;
+                  })}
+                </div>
+                <button
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                  className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
