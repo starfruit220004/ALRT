@@ -18,11 +18,11 @@ platform = espressif32
 board = esp32doit-devkit-v1
 framework = arduino
 monitor_speed = 115200
+board_build.partitions = default.csv
 lib_deps = 
 	knolleary/PubSubClient@^2.8
 	bblanchon/ArduinoJson@^7.2.2
 	tzapu/WiFiManager @ ^2.0.17
-	board_build.partitions = default.csv
 
 ## main.cpp
 #include <Arduino.h>
@@ -35,6 +35,7 @@ lib_deps =
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <WiFiClientSecure.h>
+#include <time.h>
 
 // ─────────────────────────────────────────
 // CONFIGURATION & GLOBAL VARIABLES
@@ -46,13 +47,13 @@ const char* SERVER_URL  = "https://alrt.onrender.com";
 const char* MQTT_BROKER = "broker.hivemq.com";
 const int   MQTT_PORT   = 1883;
 
-// Pins (Unchanged as requested)
+// Your specific GPIO Pins
 #define REED_PIN   4
 #define BUZZER_PIN 23
 #define SIM_RX     16
 #define SIM_TX     17
 
-HardwareSerial  sim800(1); 
+HardwareSerial  sim800(1);
 WiFiClient      espClient;
 WiFiClientSecure secureClient;
 PubSubClient    mqttClient(espClient);
@@ -78,7 +79,6 @@ const long PUBLISH_INTERVAL = 500;
 // ─────────────────────────────────────────
 String formatPhoneNumber(String raw) {
   raw.trim();
-  if (raw.length() < 7) return ""; 
   if (raw.startsWith("+")) return raw;
   if (raw.startsWith("09") && raw.length() == 11) {
     return "+63" + raw.substring(1);
@@ -93,7 +93,7 @@ String formatPhoneNumber(String raw) {
 // WIFI MANAGER & STORAGE (SPIFFS)
 // ─────────────────────────────────────────
 void saveConfigCallback() {
-  Serial.println("[Portal] Config changed, will save to SPIFFS.");
+  Serial.println("[Portal] User changed settings, saving to memory...");
   shouldSaveConfig = true;
 }
 
@@ -106,10 +106,7 @@ void setupWiFiManager() {
       if (configFile) {
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, configFile);
-        if (!error) {
-          const char* savedId = doc["user_id"];
-          if (savedId) strncpy(user_id_buffer, savedId, sizeof(user_id_buffer));
-        }
+        if (!error) strcpy(user_id_buffer, doc["user_id"] | "1");
         configFile.close();
       }
     }
@@ -117,53 +114,17 @@ void setupWiFiManager() {
 
   WiFiManager wm;
   wm.setSaveConfigCallback(saveConfigCallback);
-  
-  // ── CUSTOM QR SCANNER HTML ──
-  // This adds a "Scan QR" button directly into the WiFi setup page
-  const char* qr_script = "<script>"
-    "window.onload = function() {"
-    "  var btn = document.createElement('button');"
-    "  btn.innerHTML = '📷 Scan QR Code from Profile';"
-    "  btn.style.width='100%'; btn.style.padding='15px'; btn.style.margin='10px 0'; btn.style.background='#1d4ed8'; btn.style.color='white'; btn.style.border='none'; btn.style.borderRadius='10px'; btn.style.fontWeight='bold';"
-    "  btn.onclick = async function(e) {"
-    "    e.preventDefault();"
-    "    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });"
-    "    const video = document.createElement('video');"
-    "    video.srcObject = stream; video.setAttribute('playsinline', true); video.play();"
-    "    document.body.appendChild(video);"
-    "    const detector = new BarcodeDetector({ formats: ['qr_code'] });"
-    "    const interval = setInterval(async () => {"
-    "      const barcodes = await detector.detect(video);"
-    "      if (barcodes.length > 0) {"
-    "        const url = barcodes[0].rawValue;"
-    "        const id = new URLSearchParams(url.split('?')[1]).get('user_id');"
-    "        if (id) {"
-    "          document.getElementById('user').value = id;"
-    "          stream.getTracks().forEach(t => t.stop());"
-    "          video.remove(); clearInterval(interval);"
-    "          alert('User ID Linked: ' + id);"
-    "        }"
-    "      }"
-    "    }, 500);"
-    "  };"
-    "  document.querySelector('form').prepend(btn);"
-    "};</script>";
-  
-  wm.setCustomHeadElement(qr_script);
-
-  WiFiManagerParameter custom_user_id("user", "User ID", user_id_buffer, 10);
+  WiFiManagerParameter custom_user_id("user", "Enter User ID", user_id_buffer, 10);
   wm.addParameter(&custom_user_id);
 
+  Serial.println("[WiFi] Starting Portal: ALRT_Setup_Portal...");
   if (!wm.autoConnect("ALRT_Setup_Portal")) {
-    Serial.println("[WiFi] Connection failed.");
+    Serial.println("[WiFi] Connection failed. Restarting...");
     delay(3000);
     ESP.restart();
   }
 
-  String rawInput = String(custom_user_id.getValue());
-  rawInput.trim();
-  strncpy(user_id_buffer, rawInput.c_str(), sizeof(user_id_buffer));
-
+  strcpy(user_id_buffer, custom_user_id.getValue());
   if (shouldSaveConfig) {
     File configFile = SPIFFS.open("/config.json", "w");
     if (configFile) {
@@ -171,18 +132,11 @@ void setupWiFiManager() {
       doc["user_id"] = user_id_buffer;
       serializeJson(doc, configFile);
       configFile.close();
-      Serial.println("[SPIFFS] User ID saved successfully.");
     }
   }
 
   USER_ID = String(user_id_buffer);
-  
-  // Dynamic Topic Generation based on the ID we just got/cleaned
-  mqttTopic         = "Smart_Alert/user_" + USER_ID + "/door";
-  mqttSettingsTopic = "Smart_Alert/user_" + USER_ID + "/settings";
-
-  Serial.println("[WiFi] Connected! Target Backend: " + String(SERVER_URL));
-  Serial.println("[WiFi] Assigned USER_ID: " + USER_ID);
+  Serial.println("[WiFi] Connected! Assigned USER_ID: " + USER_ID);
 }
 
 // ─────────────────────────────────────────
@@ -202,9 +156,9 @@ void fetchSettings() {
     deserializeJson(doc, http.getString());
     alarmEnabled = doc["alarmEnabled"] | true;
     smsEnabled   = doc["smsEnabled"]   | true;
-    Serial.printf("[Settings] Sync OK: Alarm=%s, SMS=%s\n", alarmEnabled?"ON":"OFF", smsEnabled?"ON":"OFF");
+    Serial.printf("[Settings] Updated: Alarm=%d, SMS=%d\n", alarmEnabled, smsEnabled);
   } else {
-    Serial.printf("[Settings] Error %d (Server might be sleeping)\n", code);
+    Serial.printf("[Settings] HTTP %d - Using cached values\n", code);
   }
   http.end();
 }
@@ -224,23 +178,25 @@ void fetchPhoneNumber() {
     const char* phone = doc["phone"];
     if (phone && strlen(phone) > 0) {
       phoneNumber = formatPhoneNumber(String(phone));
-      Serial.println("[Phone] Target Number: " + phoneNumber);
-    } else {
-      Serial.println("[Phone] WARNING: No phone number found for this User ID!");
+      Serial.println("[Phone] Fetched and Formatted: " + phoneNumber);
     }
+  } else {
+    Serial.printf("[Phone] HTTP %d - Using cached number\n", code);
   }
   http.end();
 }
 
 // ─────────────────────────────────────────
-// GSM HELPERS
+// GSM & SIGNAL HELPERS
 // ─────────────────────────────────────────
 bool waitForSIM800() {
+  Serial.println("[SIM800] Checking module...");
   for (int i = 0; i < 10; i++) {
     sim800.println("AT");
     delay(500);
     if (sim800.available()) {
-      if (sim800.readString().indexOf("OK") >= 0) return true;
+      String resp = sim800.readString();
+      if (resp.indexOf("OK") >= 0) return true;
     }
   }
   return false;
@@ -248,63 +204,93 @@ bool waitForSIM800() {
 
 bool isSimRegistered() {
   sim800.println("AT+CREG?");
-  delay(500);
-  String resp = sim800.readString();
+  delay(1000);
+  String resp = "";
+  unsigned long start = millis();
+  while (millis() - start < 2000) {
+    if (sim800.available()) resp += sim800.readString();
+  }
   return (resp.indexOf(",1") >= 0 || resp.indexOf(",5") >= 0);
 }
 
+void checkSignalStrength() {
+  if (!sim800Ready) return;
+  sim800.println("AT+CSQ");
+  delay(500);
+  if (sim800.available()) {
+    String resp = sim800.readString();
+    Serial.println("[GSM Signal Status] " + resp);
+  }
+}
+
 // ─────────────────────────────────────────
-// SMS ACTION
+// SMS ACTION (ROBUST HANDSHAKING)
 // ─────────────────────────────────────────
 void sendSMS(String msg) {
-  if (!sim800Ready) {
-    Serial.println("[SMS] FAILED: SIM800L hardware not found.");
-    return;
-  }
-  if (!smsEnabled || phoneNumber == "" || phoneNumber == "null") {
-    Serial.println("[SMS] SKIPPED: SMS is disabled in dashboard or no phone number.");
+  if (!sim800Ready || !smsEnabled || phoneNumber == "" || phoneNumber == "null") {
+    Serial.println("[SMS] Skipping: Hardware not ready or disabled by user.");
     return;
   }
   if (!isSimRegistered()) {
-    Serial.println("[SMS] FAILED: No Network Signal.");
+    Serial.println("[SMS] ERROR: No cellular network registration.");
     return;
   }
 
-  Serial.println("[SMS] Sending Alert to " + phoneNumber + "...");
+  Serial.println("[SMS] Sending alert to: " + phoneNumber);
   sim800.println("AT+CMGF=1");
-  delay(200);
+  delay(100);
+  while (sim800.available()) sim800.read(); // Clear serial buffer
+
   sim800.print("AT+CMGS=\"" + phoneNumber + "\"\r");
-  
-  unsigned long start = millis();
-  bool prompt = false;
-  while(millis() - start < 3000) {
-    if(sim800.available() && sim800.read() == '>') {
-      prompt = true; 
-      break;
+
+  // Wait for the '>' prompt (Handshake)
+  unsigned long promptStart = millis();
+  bool gotPrompt = false;
+  while (millis() - promptStart < 5000) {
+    if (sim800.available()) {
+      if (sim800.read() == '>') {
+        gotPrompt = true;
+        delay(50);
+        break;
+      }
     }
   }
 
-  if(!prompt) {
-    Serial.println("[SMS] FAILED: SIM800L did not respond to send command.");
+  if (!gotPrompt) {
+    Serial.println("[SMS] ERROR: Module timed out waiting for '>' prompt.");
     return;
   }
 
   sim800.print(msg);
-  sim800.write(26); // Ctrl+Z
-  Serial.println("[SMS] Sent to Network.");
+  delay(100);
+  sim800.write(26); // Send Ctrl+Z
+
+  // Confirmation handling
+  unsigned long start = millis();
+  String resp = "";
+  while (millis() - start < 10000) {
+    if (sim800.available()) resp += (char)sim800.read();
+    if (resp.indexOf("+CMGS:") >= 0) {
+      Serial.println("[SMS] SUCCESS: Message sent to network.");
+      return;
+    }
+  }
+  Serial.println("[SMS] FAILED: No confirmation from network. Response: " + resp);
 }
 
 // ─────────────────────────────────────────
-// MQTT CALLBACK
+// MQTT CALLBACK (INSTANT DASHBOARD UPDATES)
 // ─────────────────────────────────────────
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
+  String topicStr = String(topic);
   String payloadStr = "";
   for (unsigned int i = 0; i < length; i++) payloadStr += (char)payload[i];
 
-  if (String(topic) == mqttSettingsTopic && payloadStr == "UPDATE") {
-    Serial.println("[MQTT] Remote settings change detected! Syncing...");
+  Serial.println("[MQTT] Received: " + topicStr + " -> " + payloadStr);
+
+  if (topicStr == mqttSettingsTopic && payloadStr == "UPDATE") {
+    Serial.println("[MQTT] Remote update triggered! Fetching new settings...");
     fetchSettings();
-    fetchPhoneNumber();
   }
 }
 
@@ -312,16 +298,33 @@ void connectMQTT() {
   mqttClient.setServer(MQTT_BROKER, MQTT_PORT);
   mqttClient.setCallback(mqttCallback);
 
-  if (!mqttClient.connected()) {
-    Serial.print("[MQTT] Connecting to Cloud Broker...");
+  int attempts = 0;
+  while (!mqttClient.connected() && attempts < 5) {
+    Serial.print("[MQTT] Connecting...");
     String clientId = "ESP32_ALRT_" + USER_ID + "_" + String(random(0xffff), HEX);
     if (mqttClient.connect(clientId.c_str())) {
-      Serial.println(" Connected!");
+      Serial.println(" connected!");
       mqttClient.subscribe(mqttSettingsTopic.c_str());
     } else {
-      Serial.printf(" Failed (rc=%d)\n", mqttClient.state());
+      Serial.printf(" failed, rc=%d\n", mqttClient.state());
+      attempts++;
+      delay(2000);
     }
   }
+}
+
+// ─────────────────────────────────────────
+// BUZZER & MAIN LOGIC
+// ─────────────────────────────────────────
+void playLoudSiren() {
+  if (!alarmEnabled) {
+    digitalWrite(BUZZER_PIN, LOW);
+    return;
+  }
+  digitalWrite(BUZZER_PIN, HIGH);
+  delay(100);
+  digitalWrite(BUZZER_PIN, LOW);
+  delay(50);
 }
 
 void setup() {
@@ -330,85 +333,75 @@ void setup() {
   pinMode(BUZZER_PIN, OUTPUT);
   digitalWrite(BUZZER_PIN, LOW);
 
-  // Initialize GSM
   sim800.begin(9600, SERIAL_8N1, SIM_RX, SIM_TX);
-  
-  // WiFi & User ID Setup
+  delay(500); // Wait for SIM800L boot
+
   setupWiFiManager();
 
-  // Hardware Check
-  sim800Ready = waitForSIM800();
-  if (sim800Ready) Serial.println("[HW] SIM800L: Ready.");
-  else             Serial.println("[HW] SIM800L: ERROR (Check Wiring).");
+  mqttTopic         = "Smart_Alert/user_" + USER_ID + "/door";
+  mqttSettingsTopic = "Smart_Alert/user_" + USER_ID + "/settings";
 
-  // Initial Sync
+  sim800Ready = waitForSIM800();
+  if (sim800Ready) {
+    Serial.println("[HARDWARE] SIM800L Initialized Successfully.");
+  } else {
+    Serial.println("[HARDWARE] SIM800L Failed to respond. Check wiring/power.");
+  }
+
+  connectMQTT();
   fetchPhoneNumber();
   fetchSettings();
-  connectMQTT();
 
   lastDoorState = digitalRead(REED_PIN);
-  Serial.println("[SYSTEM] Armed and Online.");
+  Serial.println("[ALRT] SYSTEM ARMED AND READY");
 }
 
 void loop() {
-  // 1. Maintain WiFi Connection
+  // Reconnect WiFi if lost
   if (WiFi.status() != WL_CONNECTED) {
-    static unsigned long lastRetry = 0;
-    if (millis() - lastRetry > 15000) {
-      WiFi.begin(); 
-      lastRetry = millis();
+    static unsigned long lastWiFiRetry = 0;
+    if (millis() - lastWiFiRetry > 10000) {
+      WiFi.begin();
+      lastWiFiRetry = millis();
     }
   }
 
-  // 2. Maintain MQTT Connection
-  if (WiFi.status() == WL_CONNECTED && !mqttClient.connected()) {
-    static unsigned long lastMqttRetry = 0;
-    if (millis() - lastMqttRetry > 10000) {
-      connectMQTT();
-      lastMqttRetry = millis();
-    }
-  }
+  if (!mqttClient.connected()) connectMQTT();
   mqttClient.loop();
 
-  // 3. Periodic Background Sync (Every 30 seconds)
-  if (millis() - lastUpdate > 30000) {
+  // Periodic System Refresh (15 Seconds)
+  if (millis() - lastUpdate > 15000) {
+    checkSignalStrength();
     fetchSettings();
     fetchPhoneNumber();
     lastUpdate = millis();
   }
 
-  // 4. Door Logic
   int doorState = digitalRead(REED_PIN);
   unsigned long now = millis();
 
+  // Door State Change Detection
   if (doorState != lastDoorState && (now - lastPublishTime > PUBLISH_INTERVAL)) {
     lastPublishTime = now;
-    if (doorState == HIGH) { // OPENED
-      Serial.println("[EVENT] Door Opened!");
+    if (doorState == HIGH) {
+      Serial.println("[DOOR] STATUS: OPENED");
       mqttClient.publish(mqttTopic.c_str(), "OPEN", true);
       if (!smsSentForThisOpen) {
-        sendSMS("ALRT: Door opened at your premises!");
+        sendSMS("ALRT: Door opened! Check your premises.");
         smsSentForThisOpen = true;
       }
-    } else { // CLOSED
-      Serial.println("[EVENT] Door Closed.");
-      mqttClient.publish(mqttTopic.c_str(), "CLOSE", true);
+    } else {
+      Serial.println("[DOOR] STATUS: CLOSED");
       smsSentForThisOpen = false;
       digitalWrite(BUZZER_PIN, LOW);
+      mqttClient.publish(mqttTopic.c_str(), "CLOSE", true);
     }
     lastDoorState = doorState;
   }
 
-  // 5. Siren Logic
-  if (doorState == HIGH && alarmEnabled) {
-    digitalWrite(BUZZER_PIN, HIGH);
-    delay(100);
-    digitalWrite(BUZZER_PIN, LOW);
-    delay(100);
-  } else {
-    digitalWrite(BUZZER_PIN, LOW);
-  }
+  // Active Alert Trigger
+  if (doorState == HIGH) playLoudSiren();
   
-  delay(10); 
+  delay(5); 
 }
 

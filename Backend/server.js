@@ -58,21 +58,7 @@ cron.schedule('0 17 * * *', async () => {
   }
 });
 
-// ── Schedule check in Philippine Time (UTC+8)
-function isWithinSchedule(scheduleStart, scheduleEnd) {
-  if (!scheduleStart || !scheduleEnd) return true;
-  
-  // Use toLocaleString to get the current time in Manila, regardless of server location
-  const phTimeStr = new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" });
-  const phDate = new Date(phTimeStr);
-  const cur = phDate.getHours() * 60 + phDate.getMinutes();
-
-  const toMin  = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
-  const s = toMin(scheduleStart);
-  const e = toMin(scheduleEnd);
-  if (s <= e) return cur >= s && cur < e;
-  return cur >= s || cur < e;
-}
+const { isWithinSchedule } = require("./utils/timeHelper");
 
 const VALID_STATUSES = ['OPEN', 'CLOSE', 'Opened', 'Closed', 'Alarm'];
 

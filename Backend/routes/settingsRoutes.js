@@ -5,6 +5,8 @@ const prisma  = require("../config/prisma");
 const { toggleAlarm, toggleSMS, getSettings, updateSchedule } = require("../controllers/settingsController");
 const { verifyToken } = require("../middleware/authMiddleware");
 
+const { isWithinSchedule } = require("../utils/timeHelper");
+
 // ── Authenticated routes (React frontend)
 // NOTE: These must be declared BEFORE /:userId to prevent Express from
 // misinterpreting "/alarm" or "/sms" as a userId param.
@@ -34,9 +36,13 @@ router.get("/:userId", async (req, res) => {
       console.log(`[Settings] Auto-created settings for userId ${userId}`);
     }
 
+    const scheduleActive = isWithinSchedule(settings.scheduleStart, settings.scheduleEnd);
+
+    // ✅ FIX: Only tell the ESP32 that alarm/sms are enabled IF it is within the schedule.
+    // This solves the issue where the hardware alarms outside the scheduled time.
     res.json({
-      alarmEnabled:  settings.alarmEnabled,
-      smsEnabled:    settings.smsEnabled,
+      alarmEnabled:  settings.alarmEnabled && scheduleActive,
+      smsEnabled:    settings.smsEnabled   && scheduleActive,
       scheduleStart: settings.scheduleStart,
       scheduleEnd:   settings.scheduleEnd,
     });
