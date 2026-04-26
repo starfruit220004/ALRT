@@ -18,6 +18,8 @@ export const DoorProvider = ({ children }) => {
   const [scheduleStart,  setScheduleStart]  = useState('08:00');
   const [scheduleEnd,    setScheduleEnd]    = useState('17:00');
   const [alarmTriggered, setAlarmTriggered] = useState(false);
+  const [dashboardFilter, setDashboardFilter] = useState("today"); // "today", "weekly", "monthly", "yearly", "custom"
+  const [customRange, setCustomRange] = useState({ start: "", end: "" });
 
   // FIX: Track the userId we last joined a room for, so we can leave the old
   // room when the user changes (e.g. logout → login as different account).
@@ -127,6 +129,8 @@ export const DoorProvider = ({ children }) => {
       scheduleStart,  setScheduleStart,
       scheduleEnd,    setScheduleEnd,
       alarmTriggered, setAlarmTriggered,
+      dashboardFilter, setDashboardFilter,
+      customRange, setCustomRange,
     }}>
       {children}
     </DoorContext.Provider>

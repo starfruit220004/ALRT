@@ -32,6 +32,8 @@ const Dashboard = () => {
     doorStatus,
     smsLogs = [],
     activityLogs = [],
+    dashboardFilter, setDashboardFilter,
+    customRange, setCustomRange,
   } = useContext(DoorContext);
 
   // Combine logs for processing
@@ -45,42 +47,118 @@ const Dashboard = () => {
   const totalOpened = activityLogs.filter((l) => l.status === "Opened" || l.status === "OPEN").length;
   const totalAlarm  = activityLogs.filter((l) => l.status === "Alarm").length;
 
-  // Chart data processing with error safety
-  const todayByHour = useMemo(() => {
+  // Dynamic Chart processing
+  const chartData = useMemo(() => {
     const now = new Date();
-    const todayStr = now.toISOString().slice(0, 10);
-    
-    const counts = Array.from({ length: 24 }, (_, h) => ({
-      hour: `${String(h).padStart(2, "0")}:00`,
-      Opened: 0,
-      Alarm: 0,
-    }));
+    let filteredLogs = [];
+    let grouping = {};
+    let labels = [];
 
-    allLogs.forEach((l) => {
-      // 1. Check both naming conventions (Prisma camelCase vs DB snake_case)
-      const rawDate = l.createdAt || l.created_at;
-      if (!rawDate) return;
+    const getStartOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
-      const d = new Date(rawDate);
+    if (dashboardFilter === "today") {
+      const todayStr = now.toISOString().slice(0, 10);
+      labels = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, "0")}:00`);
+      labels.forEach(l => grouping[l] = { label: l, Opened: 0, Alarm: 0 });
       
-      // 2. CRITICAL: Check if date is valid to prevent "Invalid time value" crash
-      if (isNaN(d.getTime())) return;
-
-      // 3. Filter only for today's logs
-      if (d.toISOString().slice(0, 10) !== todayStr) return;
-      
-      const h = d.getHours();
-      if (l.status === "Opened" || l.status === "OPEN") {
-        counts[h].Opened++;
-      } else if (l.status === "Alarm") {
-        counts[h].Alarm++;
+      allLogs.forEach(l => {
+        const d = new Date(l.createdAt || l.created_at);
+        if (isNaN(d.getTime())) return;
+        if (d.toISOString().slice(0, 10) === todayStr) {
+          const h = `${String(d.getHours()).padStart(2, "0")}:00`;
+          if (grouping[h]) {
+            if (l.status === "Opened" || l.status === "OPEN") grouping[h].Opened++;
+            else if (l.status === "Alarm") grouping[h].Alarm++;
+          }
+        }
+      });
+    } 
+    else if (dashboardFilter === "weekly") {
+      // Last 7 days
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dayLabel = d.toLocaleDateString("en-US", { weekday: "short" });
+        const key = d.toISOString().slice(0, 10);
+        labels.push(key);
+        grouping[key] = { label: dayLabel, Opened: 0, Alarm: 0 };
       }
-    });
-    
-    return counts;
-  }, [allLogs]);
 
-  const hasTodayData = todayByHour.some((h) => h.Opened > 0 || h.Alarm > 0);
+      allLogs.forEach(l => {
+        const d = new Date(l.createdAt || l.created_at);
+        if (isNaN(d.getTime())) return;
+        const key = d.toISOString().slice(0, 10);
+        if (grouping[key]) {
+          if (l.status === "Opened" || l.status === "OPEN") grouping[key].Opened++;
+          else if (l.status === "Alarm") grouping[key].Alarm++;
+        }
+      });
+    }
+    else if (dashboardFilter === "monthly") {
+      // This Month
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      for (let i = 1; i <= daysInMonth; i++) {
+        const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(i).padStart(2, "0")}`;
+        labels.push(key);
+        grouping[key] = { label: String(i), Opened: 0, Alarm: 0 };
+      }
+
+      allLogs.forEach(l => {
+        const d = new Date(l.createdAt || l.created_at);
+        if (isNaN(d.getTime())) return;
+        const key = d.toISOString().slice(0, 10);
+        if (grouping[key]) {
+          if (l.status === "Opened" || l.status === "OPEN") grouping[key].Opened++;
+          else if (l.status === "Alarm") grouping[key].Alarm++;
+        }
+      });
+    }
+    else if (dashboardFilter === "yearly") {
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      monthNames.forEach((name, i) => {
+        const key = `${now.getFullYear()}-${String(i + 1).padStart(2, "0")}`;
+        labels.push(key);
+        grouping[key] = { label: name, Opened: 0, Alarm: 0 };
+      });
+
+      allLogs.forEach(l => {
+        const d = new Date(l.createdAt || l.created_at);
+        if (isNaN(d.getTime())) return;
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        if (grouping[key]) {
+          if (l.status === "Opened" || l.status === "OPEN") grouping[key].Opened++;
+          else if (l.status === "Alarm") grouping[key].Alarm++;
+        }
+      });
+    }
+    else if (dashboardFilter === "custom" && customRange.start && customRange.end) {
+      const start = new Date(customRange.start);
+      const end = new Date(customRange.end);
+      const diffDays = Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24)) + 1;
+      
+      for (let i = 0; i < diffDays; i++) {
+        const d = new Date(start);
+        d.setDate(d.getDate() + i);
+        const key = d.toISOString().slice(0, 10);
+        labels.push(key);
+        grouping[key] = { label: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }), Opened: 0, Alarm: 0 };
+      }
+
+      allLogs.forEach(l => {
+        const d = new Date(l.createdAt || l.created_at);
+        if (isNaN(d.getTime())) return;
+        const key = d.toISOString().slice(0, 10);
+        if (grouping[key]) {
+          if (l.status === "Opened" || l.status === "OPEN") grouping[key].Opened++;
+          else if (l.status === "Alarm") grouping[key].Alarm++;
+        }
+      });
+    }
+
+    return labels.map(l => grouping[l]);
+  }, [allLogs, dashboardFilter, customRange]);
+
+  const hasData = chartData.some((h) => h.Opened > 0 || h.Alarm > 0);
 
   // Card Styling Logic
   const doorCardStyle = isAlarm
@@ -139,11 +217,57 @@ const Dashboard = () => {
 
       {/* Chart Section */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 md:p-5">
-        <p className="text-sm font-semibold text-gray-800 mb-1">Today's Activity</p>
-        <p className="text-xs text-gray-400 mb-3">
-          Door opens and alarms by hour —{" "}
-          {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-        </p>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div>
+            <p className="text-sm font-semibold text-gray-800 mb-1">Activity Analytics</p>
+            <p className="text-xs text-gray-400">
+              {dashboardFilter === "today" ? "Hourly breakdown for today" : 
+               dashboardFilter === "weekly" ? "Daily breakdown for the last 7 days" :
+               dashboardFilter === "monthly" ? "Daily breakdown for this month" :
+               dashboardFilter === "yearly" ? "Monthly breakdown for this year" :
+               "Custom date range activity"}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {["today", "weekly", "monthly", "yearly", "custom"].map((f) => (
+              <button
+                key={f}
+                onClick={() => setDashboardFilter(f)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                  dashboardFilter === f
+                    ? "bg-blue-600 text-white shadow-md shadow-blue-100"
+                    : "bg-gray-50 text-gray-500 hover:bg-gray-100"
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {dashboardFilter === "custom" && (
+          <div className="flex items-center gap-3 mb-6 p-3 bg-slate-50 rounded-xl border border-slate-100">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Start Date</label>
+              <input 
+                type="date" 
+                value={customRange.start}
+                onChange={(e) => setCustomRange(prev => ({ ...prev, start: e.target.value }))}
+                className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:ring-1 focus:ring-blue-400"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">End Date</label>
+              <input 
+                type="date" 
+                value={customRange.end}
+                onChange={(e) => setCustomRange(prev => ({ ...prev, end: e.target.value }))}
+                className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:ring-1 focus:ring-blue-400"
+              />
+            </div>
+          </div>
+        )}
 
         <div className="flex items-center gap-5 mb-4">
           <div className="flex items-center gap-1.5">
@@ -156,16 +280,22 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {!hasTodayData ? (
+        {!hasData ? (
           <div className="flex flex-col items-center justify-center py-12 text-gray-300 gap-2">
             <span className="text-4xl">📊</span>
-            <p className="text-sm">No activity recorded today</p>
+            <p className="text-sm">No activity recorded for this period</p>
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={todayByHour} margin={{ top: 4, right: 8, bottom: 0, left: -20 }} barSize={10} barGap={2}>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -20 }} barSize={dashboardFilter === "today" ? 10 : 15} barGap={2}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-              <XAxis dataKey="hour" tick={{ fontSize: 9, fill: "#94a3b8" }} tickLine={false} axisLine={false} interval={3} />
+              <XAxis 
+                dataKey="label" 
+                tick={{ fontSize: 9, fill: "#94a3b8" }} 
+                tickLine={false} 
+                axisLine={false} 
+                interval={dashboardFilter === "today" ? 3 : dashboardFilter === "monthly" ? 4 : 0} 
+              />
               <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} allowDecimals={false} />
               <Tooltip content={<CustomTooltip />} />
               <Bar dataKey="Opened" fill={COLORS.open}  radius={[4, 4, 0, 0]} name="Opened" />
