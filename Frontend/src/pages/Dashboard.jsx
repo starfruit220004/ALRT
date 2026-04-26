@@ -81,7 +81,7 @@ const Dashboard = () => {
         <div className={`rounded-xl border p-5 flex items-center justify-between ${doorCardStyle.bg} ${doorCardStyle.border}`}>
           <div>
             <p className={`text-xs uppercase tracking-wider mb-1 font-bold ${doorCardStyle.label}`}>Door Status</p>
-            <p className={`text-xl md:text-2xl font-black ${doorCardStyle.text}`}>{doorStatus ?? "No Device"}</p>
+            <p className={`text-xl md:text-2xl font-black ${doorCardStyle.text}`}>{doorStatus ?? "Offline / Setup"}</p>
           </div>
           <span className="text-3xl">{doorCardStyle.icon}</span>
         </div>
@@ -93,6 +93,19 @@ const Dashboard = () => {
           <span className="text-3xl">📱</span>
         </div>
       </div>
+
+      {!doorStatus && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+          <span className="text-xl">💡</span>
+          <div>
+            <p className="text-sm font-bold text-amber-800">New Device? Setup Required</p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              If your dashboard says "Offline", make sure you have entered your 
+              <strong> Device Setup ID</strong> from your profile into the device's setup portal.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="rounded-xl border border-red-300 bg-red-50 p-5 flex items-center justify-between">

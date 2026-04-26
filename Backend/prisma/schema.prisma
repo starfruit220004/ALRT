@@ -83,6 +83,17 @@ model User {
   doorLogs      DoorLog[]
   settings      Settings?
   smsLogs       SmsLog[]
+  devices       Device[]
 
   @@map("users")
+}
+
+model Device {
+  id        Int      @id @default(autoincrement())
+  mac       String   @unique
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@map("devices")
 }
