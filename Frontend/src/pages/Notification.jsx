@@ -1,129 +1,36 @@
-/*
-  ═══════════════════════════════════════════════════════
-  src/pages/Notification.jsx
-  ───────────────────────────────────────────────────────
-  FIXES FROM ORIGINAL:
-  1. Removed the "Message" column — server never writes
-     to the message field so it was always blank.
-  2. Search now only filters by status (not message).
-  3. Safe date handling with isNaN guard on all dates.
-  4. colSpan updated from 5 → 4 after column removal.
-  ═══════════════════════════════════════════════════════
-*/
-
-import React, { useContext, useState } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import { DoorContext } from "./DoorContext";
-import { ChevronLeft, ChevronRight, Search, Trash2 } from "lucide-react";
+import { 
+  ChevronLeft, ChevronRight, Search, Trash2, 
+  MessageSquare, Bell, Calendar as CalIcon, 
+  Filter, Smartphone, ShieldCheck, Mail, AlertCircle
+} from "lucide-react";
 import ClearSmsModal from "../components/ClearSmsModal";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-function Calendar({ smsHistory, selectedDate, onSelectDate }) {
-  const today = new Date();
-  const [viewYear,  setViewYear]  = useState(today.getFullYear());
-  const [viewMonth, setViewMonth] = useState(today.getMonth());
-
-  const activeDates = new Set(
-    smsHistory
-      .map((s) => {
-        const d = new Date(s.createdAt || s.created_at);
-        return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
-      })
-      .filter(Boolean)
-  );
-
-  const daysInMonth    = new Date(viewYear, viewMonth + 1, 0).getDate();
-  const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay();
-  const monthName      = new Date(viewYear, viewMonth).toLocaleString("en-US", {
-    month: "long", year: "numeric",
-  });
-
-  const prevMonth = () => {
-    if (viewMonth === 0) { setViewMonth(11); setViewYear((y) => y - 1); }
-    else setViewMonth((m) => m - 1);
-  };
-  const nextMonth = () => {
-    if (viewMonth === 11) { setViewMonth(0); setViewYear((y) => y + 1); }
-    else setViewMonth((m) => m + 1);
-  };
-  const toKey = (day) =>
-    `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 w-full">
-      <div className="flex items-center justify-between mb-4">
-        <button onClick={prevMonth} className="p-1 hover:bg-gray-100 rounded text-gray-500">
-          <ChevronLeft size={16} />
-        </button>
-        <p className="text-sm font-bold text-gray-800">{monthName}</p>
-        <button onClick={nextMonth} className="p-1 hover:bg-gray-100 rounded text-gray-500">
-          <ChevronRight size={16} />
-        </button>
-      </div>
-      <div className="grid grid-cols-7 mb-1 text-center text-[10px] font-bold text-gray-400 uppercase">
-        {["Su","Mo","Tu","We","Th","Fr","Sa"].map((d) => (
-          <div key={d} className="py-1">{d}</div>
-        ))}
-      </div>
-      <div className="grid grid-cols-7 gap-y-1">
-        {Array.from({ length: firstDayOfWeek }).map((_, i) => <div key={`e-${i}`} />)}
-        {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
-          const key        = toKey(day);
-          const hasData    = activeDates.has(key);
-          const isSelected = selectedDate === key;
-          const isToday    = key === today.toISOString().slice(0, 10);
-          return (
-            <button
-              key={day}
-              onClick={() => onSelectDate(isSelected ? null : key)}
-              className={`relative mx-auto w-8 h-8 flex items-center justify-center rounded-full text-xs font-semibold transition-all
-                ${isSelected
-                  ? "bg-blue-600 text-white shadow-md"
-                  : isToday
-                  ? "border border-blue-400 text-blue-600"
-                  : "text-gray-700 hover:bg-gray-100"}`}
-            >
-              {day}
-              {hasData && !isSelected && (
-                <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-blue-500" />
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 const Notifications = () => {
   const { smsLogs = [], setSmsLogs, smsEnabled, setSmsEnabled } = useContext(DoorContext);
   const [selectedDate, setSelectedDate] = useState(null);
-  const [search,       setSearch]       = useState("");
-  const [showConfirm,  setShowConfirm]  = useState(false);
-  const [currentPage,  setCurrentPage]  = useState(1);
+  const [search, setSearch] = useState("");
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const token = localStorage.getItem("token");
 
   // Filter logic
   const filteredSms = smsLogs.filter((s) => {
-    const d       = new Date(s.createdAt || s.created_at);
+    const d = new Date(s.createdAt || s.created_at);
     const logDate = !isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : "";
-    const matchesDate   = selectedDate ? logDate === selectedDate : true;
+    const matchesDate = selectedDate ? logDate === selectedDate : true;
     const matchesSearch = (s.status || "").toLowerCase().includes(search.toLowerCase());
     return matchesDate && matchesSearch;
   });
 
-  // Pagination logic
   const totalPages = Math.ceil(filteredSms.length / itemsPerPage);
-  const paginatedData = filteredSms.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const paginatedData = filteredSms.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  // Reset to page 1 when search or date changes
-  React.useEffect(() => {
-    setCurrentPage(1);
-  }, [search, selectedDate]);
+  useEffect(() => { setCurrentPage(1); }, [search, selectedDate]);
 
   const handleSmsToggle = async () => {
     const newValue = !smsEnabled;
@@ -131,10 +38,7 @@ const Notifications = () => {
     try {
       await fetch(`${API}/api/settings/sms`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ value: newValue }),
       });
     } catch (err) {
@@ -150,9 +54,7 @@ const Notifications = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       setSmsLogs((prev) => prev.filter((l) => l.id !== id));
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const handleClearAll = async () => {
@@ -162,178 +64,195 @@ const Notifications = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       setSmsLogs([]);
-    } catch (err) {
-      console.error("Clear all error:", err);
-    } finally {
-      setShowConfirm(false);
-    }
+    } catch (err) { console.error("Clear all error:", err); } 
+    finally { setShowConfirm(false); }
   };
 
   return (
-    <div className="p-4 md:p-6 pt-20 md:pt-8 space-y-6 max-w-7xl mx-auto">
-      <div className="flex items-start justify-between border-b border-gray-100 pb-4">
-        <div>
-          <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900">SMS Notifications</h2>
-          <p className="text-sm md:text-base text-gray-500 mt-1">History of sent SMS alerts</p>
+    <div className="p-4 md:p-6 pt-24 md:pt-10 space-y-6 max-w-7xl mx-auto min-h-screen pb-20">
+      
+      {/* Premium Header */}
+      <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-indigo-950 to-blue-900 p-8 text-white shadow-2xl shadow-blue-100">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center backdrop-blur-md border border-white/10">
+                <Bell size={20} className="text-blue-300" />
+              </div>
+              <h2 className="text-3xl md:text-4xl font-black tracking-tight">SMS Alerts</h2>
+            </div>
+            <p className="text-blue-200/70 text-sm font-medium ml-1">Monitor all outgoing security notifications</p>
+          </div>
+          <button
+            onClick={() => setShowConfirm(true)}
+            className="group flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-red-500 text-white text-sm font-black uppercase tracking-widest rounded-2xl border border-white/10 transition-all duration-300 hover:scale-105 active:scale-95"
+          >
+            <Trash2 size={16} className="transition-transform group-hover:rotate-12" />
+            Wipe SMS History
+          </button>
         </div>
-        <button
-          onClick={() => setShowConfirm(true)}
-          className="px-4 py-2 bg-red-50 text-red-600 text-sm font-medium rounded-lg border border-red-200 hover:bg-red-100 transition-colors"
-        >
-          Clear All
-        </button>
+        {/* Decorative elements */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/3" />
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6 items-start">
-        <div className="hidden lg:flex flex-col gap-4 w-72 shrink-0">
-          <div className={`rounded-xl border shadow-sm p-4 flex items-center justify-between transition-colors ${
-            smsEnabled ? "bg-blue-50 border-blue-200" : "bg-white border-gray-200"
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        
+        {/* Sidebar Controls */}
+        <div className="lg:col-span-1 space-y-6">
+          
+          {/* SMS Master Switch */}
+          <div className={`group rounded-[2rem] border-2 p-6 transition-all duration-500 ${
+            smsEnabled ? "bg-blue-600 border-blue-400 shadow-xl shadow-blue-200" : "bg-white border-slate-100 shadow-sm"
           }`}>
-            <div>
-              <p className={`text-sm font-bold ${smsEnabled ? "text-blue-700" : "text-gray-800"}`}>
-                SMS Status
-              </p>
-              <p className={`text-xs ${smsEnabled ? "text-blue-500" : "text-gray-500"}`}>
-                {smsEnabled ? "Active" : "Disabled"}
-              </p>
+            <div className="flex items-center justify-between mb-4">
+              <div className={`p-3 rounded-2xl transition-colors ${smsEnabled ? "bg-white/10" : "bg-slate-50"}`}>
+                <Smartphone size={24} className={smsEnabled ? "text-white" : "text-slate-400"} />
+              </div>
+              <button
+                onClick={handleSmsToggle}
+                className={`relative inline-flex h-7 w-14 items-center rounded-full transition-all duration-300 ${
+                  smsEnabled ? "bg-green-400 shadow-[0_0_15px_rgba(74,222,128,0.5)]" : "bg-slate-200"
+                }`}
+              >
+                <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-300 ${
+                  smsEnabled ? "translate-x-8" : "translate-x-1"
+                }`} />
+              </button>
             </div>
-            <button
-              onClick={handleSmsToggle}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                smsEnabled ? "bg-blue-600" : "bg-gray-300"
-              }`}
-            >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                smsEnabled ? "translate-x-6" : "translate-x-1"
-              }`} />
-            </button>
+            <p className={`text-lg font-black tracking-tight ${smsEnabled ? "text-white" : "text-slate-800"}`}>
+              SMS Gateway
+            </p>
+            <p className={`text-xs font-medium mt-1 ${smsEnabled ? "text-blue-100" : "text-slate-400"}`}>
+              {smsEnabled ? "System is pushing live alerts to your phone" : "Alerts are currently paused"}
+            </p>
           </div>
 
-          <Calendar
-            smsHistory={smsLogs}
-            selectedDate={selectedDate}
-            onSelectDate={setSelectedDate}
-          />
+          {/* Quick Filters */}
+          <div className="bg-white rounded-[2rem] border border-slate-100 p-6 shadow-sm space-y-6">
+            <div className="flex items-center gap-2 pb-4 border-b border-slate-50">
+              <Filter size={18} className="text-slate-400" />
+              <span className="font-black text-slate-700 uppercase tracking-wider text-[10px]">Filter History</span>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="relative">
+                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                <input
+                  type="text"
+                  placeholder="Search events..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border-transparent focus:border-blue-500 focus:bg-white rounded-2xl text-xs outline-none transition-all"
+                />
+              </div>
+
+              <div className="relative">
+                <CalIcon size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                <input
+                  type="date"
+                  value={selectedDate || ""}
+                  onChange={(e) => setSelectedDate(e.target.value || null)}
+                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border-transparent focus:border-blue-500 focus:bg-white rounded-2xl text-xs outline-none transition-all"
+                />
+              </div>
+
+              {selectedDate && (
+                <button 
+                  onClick={() => setSelectedDate(null)}
+                  className="w-full py-2 text-[10px] font-bold text-blue-500 uppercase tracking-widest hover:bg-blue-50 rounded-xl transition-colors"
+                >
+                  Clear Date
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col w-full overflow-hidden min-h-[580px]">
-          <div className="p-4 border-b border-gray-100 flex items-center gap-4 bg-white">
-            <span className="font-bold text-gray-800 shrink-0">SMS History</span>
-            <div className="relative w-48 md:w-64">
-              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by status..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-blue-400 w-full"
-              />
+        {/* SMS List Area */}
+        <div className="lg:col-span-3 space-y-4">
+          {paginatedData.length === 0 ? (
+            <div className="bg-white rounded-[2.5rem] border-2 border-dashed border-slate-100 py-32 flex flex-col items-center justify-center text-slate-300 gap-4">
+              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center">
+                <MessageSquare size={32} />
+              </div>
+              <p className="font-bold">No SMS logs to display</p>
             </div>
-          </div>
-
-          <div className="flex-1">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-400 uppercase">
-                <tr className="text-left">
-                  <th className="px-5 py-3">Event</th>
-                  <th className="px-5 py-3">Date</th>
-                  <th className="px-5 py-3">Time</th>
-                  <th className="px-5 py-3 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedData.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="text-center py-20 text-gray-400 italic">
-                      No logs found
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedData.map((sms) => {
-                    const isAlarm = sms.status === "Alarm";
-                    const isOpen  = sms.status === "Opened" || sms.status === "OPEN";
-                    const dateObj = new Date(sms.createdAt || sms.created_at);
-                    const isValid = !isNaN(dateObj.getTime());
-                    return (
-                      <tr key={sms.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                        <td className="px-5 py-3">
-                          <span className={`font-bold uppercase ${
-                            isAlarm ? "text-red-600" : isOpen ? "text-green-700" : "text-slate-600"
+          ) : (
+            <div className="grid grid-cols-1 gap-3">
+              {paginatedData.map((sms) => {
+                const isAlarm = sms.status === "Alarm";
+                const isOpen = sms.status === "Opened" || sms.status === "OPEN";
+                const d = new Date(sms.createdAt || sms.created_at);
+                
+                return (
+                  <div key={sms.id} className="group bg-white hover:bg-slate-50/50 rounded-3xl border border-slate-100 p-5 flex items-center justify-between transition-all duration-300">
+                    <div className="flex items-center gap-6">
+                      <div className={`relative w-16 h-16 rounded-2xl flex items-center justify-center text-2xl transition-all duration-300 group-hover:scale-105 ${
+                        isAlarm ? "bg-red-50 text-red-500" : isOpen ? "bg-green-50 text-green-500" : "bg-slate-50 text-slate-500"
+                      }`}>
+                        <Mail size={28} />
+                        {isAlarm && (
+                          <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full border-2 border-white flex items-center justify-center">
+                            <AlertCircle size={10} className="text-white" />
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-3">
+                          <span className={`text-sm font-black uppercase tracking-widest ${
+                            isAlarm ? "text-red-600" : isOpen ? "text-green-600" : "text-slate-600"
                           }`}>
-                            {sms.status}
+                            {sms.status === "Alarm" ? "🚨 System Alarm" : sms.status}
                           </span>
-                        </td>
-                        <td className="px-5 py-3 text-gray-500 whitespace-nowrap">
-                          {isValid ? dateObj.toLocaleDateString() : "N/A"}
-                        </td>
-                        <td className="px-5 py-3 text-gray-500 whitespace-nowrap">
-                          {isValid
-                            ? dateObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                            : "N/A"}
-                        </td>
-                        <td className="px-5 py-3 text-right">
-                          <button
-                            onClick={() => handleDeleteLog(sms.id)}
-                            className="text-red-400 hover:text-red-600 transition-all p-1.5 hover:bg-red-50 rounded-lg"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                          <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-500 text-[10px] font-black uppercase">Sent</span>
+                        </div>
+                        <p className="text-xs text-slate-400 font-medium">
+                          Notification triggered by {sms.status.toLowerCase()} event
+                        </p>
+                        <div className="flex items-center gap-4 mt-2 text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                          <span className="flex items-center gap-1"><CalIcon size={12}/> {d.toLocaleDateString()}</span>
+                          <span className="flex items-center gap-1"><Clock size={12}/> {d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <button
+                      onClick={() => handleDeleteLog(sms.id)}
+                      className="opacity-0 group-hover:opacity-100 w-12 h-12 flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all duration-300 shadow-sm"
+                    >
+                      <Trash2 size={20} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* Pagination Controls */}
           {totalPages > 1 && (
-            <div className="p-4 border-t border-gray-100 flex items-center justify-between bg-white">
-              <p className="text-xs text-gray-500">
-                Showing <span className="font-bold text-gray-700">{Math.min(filteredSms.length, (currentPage - 1) * itemsPerPage + 1)}-{Math.min(filteredSms.length, currentPage * itemsPerPage)}</span> of <span className="font-bold text-gray-700">{filteredSms.length}</span> logs
-              </p>
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between px-4 pt-8">
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                Showing {paginatedData.length} logs
+              </div>
+              <div className="flex items-center gap-3">
                 <button
                   disabled={currentPage === 1}
-                  onClick={() => setCurrentPage((p) => p - 1)}
-                  className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  onClick={() => setCurrentPage(p => p - 1)}
+                  className="w-12 h-12 flex items-center justify-center bg-white border border-slate-200 rounded-2xl text-slate-600 hover:border-blue-400 hover:text-blue-500 disabled:opacity-20 disabled:pointer-events-none transition-all shadow-sm"
                 >
-                  <ChevronLeft size={16} />
+                  <ChevronLeft size={20} />
                 </button>
-                <div className="flex items-center gap-1">
-                  {[...Array(totalPages)].map((_, i) => {
-                    const page = i + 1;
-                    if (
-                      page === 1 ||
-                      page === totalPages ||
-                      (page >= currentPage - 1 && page <= currentPage + 1)
-                    ) {
-                      return (
-                        <button
-                          key={page}
-                          onClick={() => setCurrentPage(page)}
-                          className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
-                            currentPage === page
-                              ? "bg-blue-600 text-white shadow-md"
-                              : "text-gray-600 hover:bg-gray-100"
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      );
-                    } else if (page === currentPage - 2 || page === currentPage + 2) {
-                      return <span key={page} className="text-gray-400 px-1">...</span>;
-                    }
-                    return null;
-                  })}
+                <div className="w-12 h-12 flex items-center justify-center bg-blue-600 rounded-2xl text-white font-black text-xs shadow-lg shadow-blue-200">
+                  {currentPage}
                 </div>
                 <button
                   disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage((p) => p + 1)}
-                  className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  onClick={() => setCurrentPage(p => p + 1)}
+                  className="w-12 h-12 flex items-center justify-center bg-white border border-slate-200 rounded-2xl text-slate-600 hover:border-blue-400 hover:text-blue-500 disabled:opacity-20 disabled:pointer-events-none transition-all shadow-sm"
                 >
-                  <ChevronRight size={16} />
+                  <ChevronRight size={20} />
                 </button>
               </div>
             </div>
