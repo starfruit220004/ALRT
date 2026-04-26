@@ -195,8 +195,8 @@ const ActivityLog = () => {
   const [search, setSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState(null);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [currentPage,  setCurrentPage]  = useState(1);
+  const itemsPerPage = 7;
   const token = localStorage.getItem("token");
 
   // Filter logic
