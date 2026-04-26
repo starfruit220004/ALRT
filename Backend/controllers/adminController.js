@@ -1,25 +1,42 @@
-const pool = require('../config/db');
+const prisma = require("../config/prisma");
 
+// GET all users
 exports.getUsers = async (req, res) => {
   try {
-    const users = await pool.query("SELECT id, name, email, role FROM users ORDER BY id");
-    res.json(users.rows);
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isActive: true,
+        deactivatedAt: true,
+      },
+      orderBy: { id: "asc" },
+    });
+    res.json(users);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Error fetching users' });
+    console.error("[Admin] Error fetching users:", err.message);
+    res.status(500).json({ message: "Error fetching users" });
   }
 };
 
-// Check that the user actually existed before deleting
+// DELETE user (Permanent delete)
 exports.deleteUser = async (req, res) => {
-  const { id } = req.params;
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ message: "Invalid user ID" });
+
   try {
-    const result = await pool.query("DELETE FROM users WHERE id=$1 RETURNING id", [id]);
-    if (result.rows.length === 0)
-      return res.status(404).json({ message: 'User not found' });
-    res.json({ message: "Deleted" });
+    // Check if user exists
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Guard: Prevent deleting the last admin if necessary, or just proceed
+    await prisma.user.delete({ where: { id } });
+    
+    res.json({ message: "User deleted successfully" });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Error deleting user' });
+    console.error("[Admin] Error deleting user:", err.message);
+    res.status(500).json({ message: "Error deleting user" });
   }
 };

@@ -2,8 +2,12 @@ const mqtt = require('mqtt');
 
 const userId = 5; // change this to test different users
 
-const clientId = `Simulator_${Math.random().toString(16).slice(2, 8)}`;
-const client = mqtt.connect('mqtt://broker.hivemq.com:1883', { clientId });
+const clientId = `SmartAlert_Simulator_${Date.now()}_${Math.random().toString(16).slice(2, 5)}`;
+const client = mqtt.connect('mqtt://broker.hivemq.com:1883', { 
+  clientId,
+  clean: true,
+  reconnectPeriod: 5000 
+});
 
 client.on('connect', () => {
   console.log(`Connected to broker as ${clientId}`);
